@@ -1,0 +1,12 @@
+# Dependencies 
+node_modules/
+backend/node_modules/
+mobile-app/node_modules/
+
+# local env files
+.env
+backend/.env
+mobile-app/.env
+
+# OS build
+.DS_Store
