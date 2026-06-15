@@ -45,7 +45,7 @@ export default function DownloadsScreen() {
       <FlatList
         data={mockDownloads}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 32 }]}
         renderItem={({ item }) => (
           <View style={styles.downloadItem}>
             <View style={styles.iconContainer}>
@@ -56,7 +56,7 @@ export default function DownloadsScreen() {
               <Text style={styles.itemSize}>
                 {item.status === 'downloading' ? `Downloading... ${item.progress}%` : item.size}
               </Text>
-              
+
               {item.status === 'downloading' && (
                 <View style={styles.progressBarBg}>
                   <View style={[styles.progressBarFill, { width: `${item.progress || 0}%` as any }]} />
