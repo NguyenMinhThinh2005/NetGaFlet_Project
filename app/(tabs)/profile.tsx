@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Theme from '../../constants/Theme';
 import Toggle from '../../components/ui/Toggle';
+import Header from '../../components/ui/Header';
+import Theme from '../../constants/Theme';
 import { useAuth } from '../../context/AuthContext';
 import { mockUser } from '../../data/mockUser';
 
@@ -21,11 +22,12 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <Header />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+        {/* Header Section (Avatar, Name, Stats) */}
         <View style={styles.header}>
-          {/* Avatar with gradient ring */}
-          <View style={styles.avatarWrapper}>
+          {/* Avatar with gradient ring and glow */}
+          <View style={[styles.avatarWrapper, Theme.glows.redStrong]}>
             <LinearGradient
               colors={['#E50914', '#FF6B6B']}
               start={{ x: 0, y: 0 }}
@@ -72,8 +74,9 @@ export default function ProfileScreen() {
 
         {/* Library Section */}
         <ProfileSection label="Library">
-          <ListRow icon="🎬" label="Watch History" onClick={() => router.push('/watch-history')} showChevron />
-          <ListRow icon="🔖" label="My Watchlist" onClick={() => router.push('/watchlist')} showChevron />
+          <ListRow icon="🎬" label="Viewing History" onClick={() => router.push('/watch-history')} showChevron />
+          <ListRow icon="📥" label="Downloads" onClick={() => router.push('/downloads')} showChevron />
+          <ListRow icon="🔖" label="My List" onClick={() => router.push('/watchlist')} showChevron />
         </ProfileSection>
 
         {/* Preferences Section */}
@@ -108,7 +111,7 @@ export default function ProfileScreen() {
   );
 }
 
-function ProfileSection({ label, children }: { label: string; children: React.ReactNode }) {
+function ProfileSection({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionLabel}>{label}</Text>

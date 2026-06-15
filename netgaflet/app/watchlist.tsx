@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, PanResponder, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useRef, useState } from 'react';
+import { Animated, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Theme from '../constants/Theme';
 import { useApp } from '../context/AppContext';
@@ -29,9 +29,6 @@ export default function WatchlistScreen() {
               {items.length} title{items.length !== 1 ? 's' : ''} saved
             </Text>
           </View>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.menuIcon}>☰</Text>
-          </TouchableOpacity>
         </View>
 
         {/* List of Swipeable Items */}
@@ -54,6 +51,7 @@ interface SwipeableItemProps {
   movie: Movie;
   onDelete: () => void;
   onTap: () => void;
+  key?: string | number;
 }
 
 function SwipeableItem({ movie, onDelete, onTap }: SwipeableItemProps) {
@@ -160,7 +158,7 @@ function EmptyWatchlist({ router, insets }: { router: any; insets: any }) {
         <Text style={styles.emptySubtitle}>
           Start exploring and save movies to watch later.
         </Text>
-        
+
         <TouchableOpacity
           onPress={() => router.replace('/(tabs)')}
           style={[styles.exploreBtn, Theme.glows.red]}
@@ -231,7 +229,7 @@ const styles = StyleSheet.create({
     color: Theme.colors.textPrimary,
   },
   swipeCard: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.roundness.card,
   },

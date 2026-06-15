@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Theme from '../../constants/Theme';
+import Header from '../../components/ui/Header';
 import HeroBanner from '../../components/features/HeroBanner';
 import MovieCard from '../../components/ui/MovieCard';
 import FAB from '../../components/features/FAB';
@@ -25,6 +26,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
+      <Header />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Hero Banner */}
         <HeroBanner movie={heroMovie} />

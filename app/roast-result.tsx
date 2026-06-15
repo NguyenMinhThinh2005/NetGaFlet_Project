@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Theme from '../constants/Theme';
 import RoastCard from '../components/features/RoastCard';
+import Theme from '../constants/Theme';
 import { mockUser } from '../data/mockUser';
 
 export default function RoastResultScreen() {
@@ -28,6 +28,7 @@ export default function RoastResultScreen() {
         { bottom: 120, left: 10 },
         { bottom: 120, right: 10 },
       ].map((pos, i) => (
+        // @ts-ignore
         <View key={i} style={[styles.filmCorner, pos]} />
       ))}
 
@@ -56,6 +57,7 @@ export default function RoastResultScreen() {
         {/* Stats row */}
         <View style={styles.statsRow}>
           {mockUser.roastProfile.roastStats.map(s => (
+            // @ts-ignore
             <View key={s} style={styles.statChip}>
               <Text style={styles.statChipText}>{s}</Text>
             </View>
@@ -90,7 +92,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.bgBase,
   },
   bloom: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(229,9,20,0.06)',
   },
   filmCorner: {

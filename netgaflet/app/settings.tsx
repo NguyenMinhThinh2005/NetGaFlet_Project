@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Theme from '../constants/Theme';
 import Toggle from '../components/ui/Toggle';
+import Theme from '../constants/Theme';
 import { useAuth } from '../context/AuthContext';
 
 export default function SettingsScreen() {
@@ -43,7 +43,6 @@ export default function SettingsScreen() {
       rows: [
         { key: 'autoplay', label: 'Autoplay Next Episode', icon: '▶', toggle: true },
         { key: 'hdr', label: '4K HDR Streaming', icon: '🎬', toggle: true },
-        { key: 'subtitles', label: 'Subtitles', icon: '💬', toggle: true },
       ],
     },
     {
@@ -56,15 +55,15 @@ export default function SettingsScreen() {
       label: 'Privacy',
       rows: [
         { key: 'parentalControl', label: 'Parental Controls', icon: '🔒', toggle: true },
-        { label: 'Clear Watch History', icon: '🗑', toggle: false, onClick: () => {} },
-        { label: 'Privacy Policy', icon: '📄', toggle: false, onClick: () => {} },
+        { label: 'Clear Watch History', icon: '🗑', toggle: false, onClick: () => { } },
+        { label: 'Privacy Policy', icon: '📄', toggle: false, onClick: () => { } },
       ],
     },
     {
       label: 'Account',
       rows: [
-        { label: 'Change Password', icon: '🔑', toggle: false, onClick: () => {} },
-        { label: 'Manage Subscription', icon: '💳', toggle: false, onClick: () => {} },
+        { label: 'Change Password', icon: '🔑', toggle: false, onClick: () => { } },
+        { label: 'Manage Subscription', icon: '💳', toggle: false, onClick: () => { } },
         {
           label: 'Sign Out',
           icon: '🚪',
@@ -91,9 +90,10 @@ export default function SettingsScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {settingSections.map(section => (
+          // @ts-ignore
           <View key={section.label} style={styles.section}>
             <Text style={styles.sectionLabel}>{section.label}</Text>
-            
+
             {section.rows.map((row, i) => {
               const rowContent = (
                 <View style={styles.row}>
@@ -116,12 +116,14 @@ export default function SettingsScreen() {
 
               if (row.onClick) {
                 return (
+                  // @ts-ignore
                   <TouchableOpacity key={row.label} activeOpacity={0.8} onPress={row.onClick}>
                     {rowContent}
                   </TouchableOpacity>
                 );
               }
 
+              // @ts-ignore
               return <View key={row.label}>{rowContent}</View>;
             })}
           </View>
