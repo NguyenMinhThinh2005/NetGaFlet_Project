@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   dimOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(8,8,14,0.7)',
   },
   backBtn: {
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     fontFamily: Theme.typography.fontFamily,
   },
   centerLabel: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },

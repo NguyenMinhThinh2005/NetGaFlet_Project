@@ -75,7 +75,7 @@ export default function ProfileScreen() {
         {/* Library Section */}
         <ProfileSection label="Library">
           <ListRow icon="🎬" label="Viewing History" onClick={() => router.push('/watch-history')} showChevron />
-          <ListRow icon="📥" label="Downloads" onClick={() => router.push('/downloads')} showChevron />
+          <ListRow icon="📥" label="Downloads" onClick={() => router.push('/downloads' as any)} showChevron />
           <ListRow icon="🔖" label="My List" onClick={() => router.push('/watchlist')} showChevron />
         </ProfileSection>
 
@@ -98,7 +98,7 @@ export default function ProfileScreen() {
             label="Notifications"
             right={<Toggle value={notif} onChange={setNotif} />}
           />
-          <ListRow icon="⚙️" label="Settings" onClick={() => router.push('/settings')} showChevron />
+          <ListRow icon="⚙️" label="Settings" onClick={() => router.push('/settings' as any)} showChevron />
           <ListRow
             icon="🚪"
             label="Sign Out"
