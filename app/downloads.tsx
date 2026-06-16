@@ -39,7 +39,7 @@ export default function DownloadsScreen() {
           <Feather name="arrow-left" size={24} color={Theme.colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Downloads</Text>
-        <View style={{ width: 24 }} /> {/* Placeholder for balance */}
+        <View style={{ width: 24 }} />
       </View>
 
       <FlatList
@@ -56,12 +56,11 @@ export default function DownloadsScreen() {
               <Text style={styles.itemSize}>
                 {item.status === 'downloading' ? `Downloading... ${item.progress}%` : item.size}
               </Text>
-              
-              {item.status === 'downloading' && (
+              {item.status === 'downloading' ? (
                 <View style={styles.progressBarBg}>
                   <View style={[styles.progressBarFill, { width: `${item.progress || 0}%` as any }]} />
                 </View>
-              )}
+              ) : null}
             </View>
 
             <TouchableOpacity style={styles.actionBtn}>
