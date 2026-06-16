@@ -45,7 +45,7 @@ export default function DownloadsScreen() {
       <FlatList
         data={mockDownloads}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 32 }]}
         renderItem={({ item }) => (
           <View style={styles.downloadItem}>
             <View style={styles.iconContainer}>

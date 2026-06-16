@@ -62,7 +62,7 @@ export default function MovieDetailScreen() {
             {/* Title + Meta overlay */}
             <View style={styles.heroContent}>
               <Text style={styles.title}>{movie.title.toUpperCase()}</Text>
-              
+
               {/* Badges */}
               <View style={styles.badgeRow}>
                 {movie.genres.map((g: any) => (
@@ -150,7 +150,7 @@ export default function MovieDetailScreen() {
         )}
 
         {/* Spacer for sticky bottom bar */}
-        <View style={{ height: 100 }} />
+        <View style={{ height: insets.bottom + 88 }} />
       </ScrollView>
 
       {/* Sticky bottom bar */}
@@ -442,12 +442,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 64,
     backgroundColor: Theme.colors.bgBase,
     borderTopWidth: 1,
     borderTopColor: Theme.colors.divider,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingTop: 8,
     zIndex: 10,
   },
   bottomBarTab: {

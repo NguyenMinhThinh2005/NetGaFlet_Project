@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import Theme from '../constants/Theme';
@@ -144,7 +145,7 @@ export default function OnboardingScreen() {
   const { Illustration } = slide;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Skip button */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
@@ -192,7 +193,7 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     paddingHorizontal: 20,
-    paddingTop: 48,
+    paddingTop: 0,
   },
   skipBtn: {
     paddingHorizontal: 8,
