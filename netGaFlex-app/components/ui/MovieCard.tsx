@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Theme from '../../constants/Theme';
@@ -7,7 +7,7 @@ import { parseGradient } from '../../utils/helpers';
 import { Movie } from '../../data/mockMovies';
 
 interface MovieCardProps {
-  movie: Movie;
+  movie: any;
   variant?: 'portrait' | 'landscape' | 'wide';
   showProgress?: boolean;
   width?: number;
@@ -30,10 +30,13 @@ export default function MovieCard({
   };
 
   const { w, h } = dims[variant] || dims.portrait;
-  const gradient = parseGradient(movie.posterGradient);
+  const gradient = parseGradient(movie.posterGradient || 'linear-gradient(135deg, #1A1A24, #111118)');
+  const imageUrl = movie.thumbUrl || movie.posterUrl || 
+    (movie.thumb_url ? (movie.thumb_url.startsWith('http') ? movie.thumb_url : `https://img.ophim.live/uploads/movies/${movie.thumb_url}`) : 
+     (movie.poster_url ? (movie.poster_url.startsWith('http') ? movie.poster_url : `https://img.ophim.live/uploads/movies/${movie.poster_url}`) : null));
 
   const handlePress = () => {
-    router.push(`/movie/${movie.id}`);
+    router.push(`/movie/${movie.id || movie.slug || movie.movieId}`);
   };
 
   return (
@@ -43,13 +46,21 @@ export default function MovieCard({
       style={[{ width: w, marginRight: 12 }, style]}
     >
       <View style={[styles.cardContainer, { height: h }, Theme.glows.card]}>
-        <LinearGradient
-          colors={gradient.colors}
-          locations={gradient.locations}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={gradient.colors}
+            locations={gradient.locations}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
 
         {/* Title overlay inside card */}
         <LinearGradient
@@ -57,7 +68,7 @@ export default function MovieCard({
           style={styles.textOverlay}
         >
           <Text style={styles.titleText} numberOfLines={1}>
-            {movie.title}
+            {movie.title || movie.name}
           </Text>
           {variant !== 'portrait' && (
             <Text style={styles.ratingText}>

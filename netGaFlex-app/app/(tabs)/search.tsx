@@ -1,16 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Theme from '../../constants/Theme';
-import MovieCard from '../../components/ui/MovieCard';
 import SkeletonBlock from '../../components/ui/SkeletonBlock';
-import { mockMovies } from '../../data/mockMovies';
+import { searchMovies, getMoviesByType, getNewUpdatedMovies, getMoviesByGenre } from '../../lib/movieApi';
 import { parseGradient } from '../../utils/helpers';
 
 const FILTERS = ['All', 'Movies', 'Series', 'Documentaries', 'Short Films'];
-const MASONRY_MOVIES = mockMovies.slice(0, 6);
+
+const GENRES = [
+  { slug: 'hanh-dong', name: 'Hành Động', icon: '🎬', colors: ['#ff4e50', '#f9d423'] },
+  { slug: 'hai-huoc', name: 'Hài Hước', icon: '🤣', colors: ['#f9d423', '#ff4e50'] },
+  { slug: 'tinh-cam', name: 'Tình Cảm', icon: '💖', colors: ['#ec008c', '#fc6767'] },
+  { slug: 'kinh-di', name: 'Kinh Dị', icon: '👻', colors: ['#8a2387', '#e94057'] },
+  { slug: 'vien-tuong', name: 'Viễn Tưởng', icon: '🛸', colors: ['#00c6ff', '#0072ff'] },
+  { slug: 'co-trang', name: 'Cổ Trang', icon: '🗡️', colors: ['#f12711', '#f5af19'] },
+  { slug: 'hoat-hinh', name: 'Hoạt Hình', icon: '🤖', colors: ['#11998e', '#38ef7d'] },
+  { slug: 'vo-thuat', name: 'Võ Thuật', icon: '🥋', colors: ['#eb5757', '#333333'] }
+];
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -19,11 +28,16 @@ export default function SearchScreen() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [filter, setFilter] = useState('All');
   const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
   const debounceRef = useRef<any>(null);
 
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [selectedGenre, setSelectedGenre] = useState<any | null>(null);
+
   const handleFocus = () => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 800);
+    // Optional focus animation helper
   };
 
   const handleChange = (val: string) => {
@@ -32,32 +46,136 @@ export default function SearchScreen() {
     setLoading(true);
     debounceRef.current = setTimeout(() => {
       setDebouncedQuery(val);
-      setLoading(false);
     }, 500);
   };
 
-  const getMappedType = (f: string) => {
-    if (f === 'Movies') return 'movie';
-    if (f === 'Series') return 'series';
-    if (f === 'Documentaries') return 'documentary';
-    if (f === 'Short Films') return 'short';
-    return null;
+  const handleLoadMore = async () => {
+    if (loading || loadingMore || !hasMore || debouncedQuery) return;
+    try {
+      setLoadingMore(true);
+      const nextPage = page + 1;
+      let newMovies: any[] = [];
+
+      if (selectedGenre) {
+        const data = await getMoviesByGenre(selectedGenre.slug, nextPage);
+        newMovies = data?.movies || [];
+      } else if (filter === 'All') {
+        const data = await getNewUpdatedMovies(nextPage);
+        newMovies = data?.movies || [];
+      } else {
+        let type: 'phim-bo' | 'phim-le' | 'hoat-hinh' | 'tv-shows' = 'phim-le';
+        if (filter === 'Series') type = 'phim-bo';
+        else if (filter === 'Documentaries') type = 'hoat-hinh';
+        else if (filter === 'Short Films') type = 'tv-shows';
+
+        const data = await getMoviesByType(type, nextPage);
+        newMovies = data?.movies || [];
+      }
+
+      if (newMovies.length > 0) {
+        const mapped = newMovies.map((m: any) => ({
+          ...m,
+          id: m.slug,
+          title: m.name,
+          posterGradient: 'linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 40%, #0f2060 80%)',
+        }));
+        setResults(prev => [...prev, ...mapped]);
+        setPage(nextPage);
+        setHasMore(mapped.length >= 10);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('Lỗi tải thêm phim:', err);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
-  const mappedType = getMappedType(filter);
-  const baseList = (debouncedQuery || mappedType) ? mockMovies : MASONRY_MOVIES;
-  const results = baseList.filter(m => {
-    if (mappedType && m.type !== mappedType) return false;
-    if (debouncedQuery) {
-      const q = debouncedQuery.toLowerCase();
-      return (
-        m.title.toLowerCase().includes(q) ||
-        m.genres.some(g => g.toLowerCase().includes(q)) ||
-        m.description.toLowerCase().includes(q)
-      );
+  useEffect(() => {
+    async function fetchSearchData() {
+      setLoading(true);
+      try {
+        if (debouncedQuery) {
+          setSelectedGenre(null); // Clear active genre when user types
+          // Real live search
+          const data = await searchMovies(debouncedQuery);
+          if (data && data.movies) {
+            const mapped = data.movies.map((m: any) => ({
+              ...m,
+              id: m.slug,
+              title: m.name,
+              posterGradient: 'linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 40%, #0f2060 80%)',
+            }));
+            setResults(mapped);
+          } else {
+            setResults([]);
+          }
+          setHasMore(false);
+        } else if (selectedGenre) {
+          // Genre-specific fetching (page 1)
+          const data = await getMoviesByGenre(selectedGenre.slug, 1);
+          if (data && data.movies) {
+            const mapped = data.movies.map((m: any) => ({
+              ...m,
+              id: m.slug,
+              title: m.name,
+              posterGradient: 'linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 40%, #0f2060 80%)',
+            }));
+            setResults(mapped);
+            setHasMore(mapped.length >= 10);
+          } else {
+            setResults([]);
+            setHasMore(false);
+          }
+        } else {
+          // Filter-based default browsing
+          let type: 'phim-bo' | 'phim-le' | 'hoat-hinh' | 'tv-shows' = 'phim-le';
+          if (filter === 'Series') type = 'phim-bo';
+          else if (filter === 'Documentaries') type = 'hoat-hinh';
+          else if (filter === 'Short Films') type = 'tv-shows';
+
+          if (filter === 'All') {
+            const data = await getNewUpdatedMovies(1);
+            if (data && data.movies) {
+              const mapped = data.movies.map((m: any) => ({
+                ...m,
+                id: m.slug,
+                title: m.name,
+                posterGradient: 'linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 40%, #0f2060 80%)',
+              }));
+              setResults(mapped);
+              setHasMore(mapped.length >= 10);
+            } else {
+              setResults([]);
+              setHasMore(false);
+            }
+          } else {
+            const data = await getMoviesByType(type, 1);
+            if (data && data.movies) {
+              const mapped = data.movies.map((m: any) => ({
+                ...m,
+                id: m.slug,
+                title: m.name,
+                posterGradient: 'linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 40%, #0f2060 80%)',
+              }));
+              setResults(mapped);
+              setHasMore(mapped.length >= 10);
+            } else {
+              setResults([]);
+              setHasMore(false);
+            }
+          }
+        }
+        setPage(1);
+      } catch (err) {
+        console.error('Error fetching search results:', err);
+      } finally {
+        setLoading(false);
+      }
     }
-    return true;
-  });
+    fetchSearchData();
+  }, [debouncedQuery, filter, selectedGenre]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -86,20 +204,25 @@ export default function SearchScreen() {
           {FILTERS.map(f => (
             <TouchableOpacity
               key={f}
-              onPress={() => setFilter(f)}
+              onPress={() => {
+                setQuery('');
+                setDebouncedQuery('');
+                setSelectedGenre(null);
+                setFilter(f);
+              }}
               style={[
                 styles.pill,
                 {
-                  backgroundColor: filter === f ? Theme.colors.primary : Theme.colors.surfaceElevated,
-                  borderColor: filter === f ? 'transparent' : Theme.colors.divider,
-                  borderWidth: filter === f ? 0 : 1,
+                  backgroundColor: filter === f && !selectedGenre ? Theme.colors.primary : Theme.colors.surfaceElevated,
+                  borderColor: filter === f && !selectedGenre ? 'transparent' : Theme.colors.divider,
+                  borderWidth: filter === f && !selectedGenre ? 0 : 1,
                 },
               ]}
             >
               <Text
                 style={[
                   styles.pillText,
-                  { fontWeight: filter === f ? '600' : '400' },
+                  { fontWeight: filter === f && !selectedGenre ? '600' : '400' },
                 ]}
               >
                 {f}
@@ -108,18 +231,78 @@ export default function SearchScreen() {
           ))}
         </ScrollView>
 
-        {/* Section title */}
-        <Text style={styles.sectionTitle}>
-          {query ? `Results for "${query}"` : 'Trending Searches'}
-        </Text>
+        {/* Genre active title header or grid title */}
+        {selectedGenre && !query && (
+          <View style={styles.selectedGenreHeader}>
+            <Text style={styles.selectedGenreTitle}>🎭 Thể loại: {selectedGenre.name}</Text>
+            <TouchableOpacity
+              onPress={() => setSelectedGenre(null)}
+              style={styles.clearGenreBtn}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.clearGenreText}>✕ Quay lại</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {/* Dynamic states: Loading vs Empty vs Grid */}
-        {loading ? (
-          <SkeletonOverlay />
-        ) : results.length === 0 ? (
-          <EmptySearch query={query} />
+        {/* Browse Category Grid or Listing Masonry Grid */}
+        {!query && !selectedGenre && filter === 'All' ? (
+          <View>
+            <Text style={styles.sectionTitle}>Browse Genres</Text>
+            <View style={styles.genreGrid}>
+              {GENRES.map(g => (
+                <TouchableOpacity
+                  key={g.slug}
+                  onPress={() => setSelectedGenre(g)}
+                  activeOpacity={0.85}
+                  style={styles.genreCardWrapper}
+                >
+                  <LinearGradient
+                    colors={g.colors as [string, string]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.genreCard}
+                  >
+                    <Text style={styles.genreCardIcon}>{g.icon}</Text>
+                    <Text style={styles.genreCardName}>{g.name}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         ) : (
-          <MasonryGrid movies={results} router={router} />
+          <View>
+            {!selectedGenre && (
+              <Text style={styles.sectionTitle}>
+                {query ? `Results for "${query}"` : `${filter} Searches`}
+              </Text>
+            )}
+
+            {/* Dynamic states: Loading vs Empty vs Grid */}
+            {loading ? (
+              <SkeletonOverlay />
+            ) : results.length === 0 ? (
+              <EmptySearch query={query || filter || selectedGenre?.name} />
+            ) : (
+              <View>
+                <MasonryGrid movies={results} router={router} />
+                {hasMore && !debouncedQuery && (
+                  <TouchableOpacity
+                    onPress={handleLoadMore}
+                    style={styles.loadMoreBtn}
+                    activeOpacity={0.8}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.loadMoreText}>Load More Movies ➔</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
         )}
       </ScrollView>
     </View>
@@ -131,29 +314,40 @@ function MasonryGrid({ movies, router }: { movies: any[]; router: any }) {
   const col2 = movies.filter((_, i) => i % 2 === 1);
 
   const renderCard = (movie: any, tall: boolean) => {
-    const gradient = parseGradient(movie.posterGradient);
+    const gradient = parseGradient(movie.posterGradient || 'linear-gradient(135deg, #1A1A24, #111118)');
+    const imageUrl = movie.thumbUrl || movie.posterUrl || 
+      (movie.thumb_url ? (movie.thumb_url.startsWith('http') ? movie.thumb_url : `https://img.ophim.live/uploads/movies/${movie.thumb_url}`) : 
+       (movie.poster_url ? (movie.poster_url.startsWith('http') ? movie.poster_url : `https://img.ophim.live/uploads/movies/${movie.poster_url}`) : null));
     const height = tall ? 180 : 120;
 
     return (
       <TouchableOpacity
-        key={movie.id}
+        key={movie.id || movie.slug}
         activeOpacity={0.9}
-        onPress={() => router.push(`/movie/${movie.id}`)}
+        onPress={() => router.push(`/movie/${movie.id || movie.slug}`)}
         style={[styles.card, { height }, Theme.glows.card]}
       >
-        <LinearGradient
-          colors={gradient.colors}
-          locations={gradient.locations}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={gradient.colors}
+            locations={gradient.locations}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
         <LinearGradient
           colors={['transparent', 'rgba(0,0,0,0.85)']}
           style={styles.cardOverlay}
         >
           <Text style={styles.cardTitle} numberOfLines={1}>
-            {movie.title}
+            {movie.title || movie.name}
           </Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -197,7 +391,7 @@ function EmptySearch({ query }: { query: string }) {
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyEmoji}>🔍</Text>
       <Text style={styles.emptyTitle}>No results for "{query}"</Text>
-      <Text style={styles.emptySubtitle}>Try different keywords or browse by mood.</Text>
+      <Text style={styles.emptySubtitle}>Try different keywords or browse by category.</Text>
     </View>
   );
 }
@@ -312,5 +506,85 @@ const styles = StyleSheet.create({
     color: Theme.colors.textSecondary,
     fontSize: 14,
     fontFamily: Theme.typography.fontFamily,
+  },
+  loadMoreBtn: {
+    height: 48,
+    borderRadius: Theme.roundness.button,
+    backgroundColor: Theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Theme.colors.divider,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 20,
+    width: '100%',
+  },
+  loadMoreText: {
+    color: Theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: Theme.typography.fontFamily,
+  },
+  selectedGenreHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 14,
+    backgroundColor: Theme.colors.surfaceElevated,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.divider,
+  },
+  selectedGenreTitle: {
+    color: Theme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: Theme.typography.fontFamily,
+  },
+  clearGenreBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  clearGenreText: {
+    color: Theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: Theme.typography.fontFamily,
+  },
+  genreGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 4,
+  },
+  genreCardWrapper: {
+    width: '48%',
+    aspectRatio: 16 / 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  genreCard: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  genreCardIcon: {
+    fontSize: 24,
+    alignSelf: 'flex-end',
+  },
+  genreCardName: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: Theme.typography.fontFamily,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });

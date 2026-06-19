@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,7 +8,7 @@ import BottomSheet from '../../components/ui/BottomSheet';
 import ReviewItem from '../../components/ui/ReviewItem';
 import MovieCard from '../../components/ui/MovieCard';
 import { useApp } from '../../context/AppContext';
-import { getMovieById, mockMovies } from '../../data/mockMovies';
+import { getMovieDetails } from '../../lib/movieApi';
 import { getReviewsForMovie, getRatingDistribution } from '../../data/mockReviews';
 import { useBottomSheet } from '../../hooks/useBottomSheet';
 import { parseGradient } from '../../utils/helpers';
@@ -20,15 +20,103 @@ export default function MovieDetailScreen() {
   const { isInWatchlist, toggleWatchlist } = useApp();
   const { isOpen, open, close } = useBottomSheet();
 
-  const movie = getMovieById(id || '') || mockMovies[0];
-  const inList = isInWatchlist(movie.id);
-  const reviews = getReviewsForMovie(movie.id);
-  const dist = getRatingDistribution(movie.id);
-  const heroGradient = parseGradient(movie.heroGradient);
+  const [movie, setMovie] = useState<any>(null);
+  const [episodes, setEpisodes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const similar = mockMovies
-    .filter((m: any) => m.id !== movie.id && m.genres.some((g: any) => movie.genres.includes(g)))
-    .slice(0, 5);
+  const inList = movie ? isInWatchlist(movie.id) : false;
+  const reviews = getReviewsForMovie(id || '');
+  const dist = getRatingDistribution(id || '');
+
+  useEffect(() => {
+    async function loadDetails() {
+      if (!id) return;
+      try {
+        setLoading(true);
+        const data = await getMovieDetails(id);
+        if (data && data.movie) {
+          // Map actors
+          const apiActors = data.movie.actor;
+          let mappedCast: any[] = [];
+          if (apiActors) {
+            const actorList = Array.isArray(apiActors) ? apiActors : apiActors.split(',');
+            mappedCast = actorList.slice(0, 10).map((actorName: string) => {
+              const trimmed = actorName.trim();
+              return {
+                name: trimmed,
+                role: 'Cast',
+                initials: trimmed.slice(0, 2).toUpperCase(),
+                color: '#1a3a5c',
+              };
+            });
+          }
+
+          // Map episodes
+          let apiEpisodes: any[] = [];
+          if (data.episodes && data.episodes.length > 0) {
+            // Take the first server's data
+            apiEpisodes = data.episodes[0].server_data || [];
+          }
+
+          setMovie({
+            id: data.movie.slug,
+            title: data.movie.name,
+            originalTitle: data.movie.origin_name,
+            year: data.movie.year || 2024,
+            duration: data.movie.time || '120m',
+            rating: 8.5,
+            genres: data.movie.category ? data.movie.category.map((c: any) => c.name) : ['Movie'],
+            format: data.movie.quality || 'FHD',
+            description: data.movie.content ? data.movie.content.replace(/<[^>]*>/g, '') : 'No description available.',
+            aiSummary: `Live Stream: High quality ${data.movie.quality} encode with ${data.movie.lang} localization. Ready for instant buffer-free playback.`,
+            cast: mappedCast,
+            thumbUrl: data.movie.thumb_url,
+            posterUrl: data.movie.poster_url,
+            heroGradient: 'linear-gradient(135deg, #0a0a14 0%, #1a1a3e 50%, #0f3060 100%)',
+          });
+          setEpisodes(apiEpisodes);
+        }
+      } catch (err) {
+        console.error('Error fetching movie details from OPhim:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDetails();
+  }, [id]);
+
+  if (loading && !movie) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Theme.colors.primary} />
+        <Text style={{ color: '#fff', marginTop: 12, fontFamily: Theme.typography.fontFamily }}>Loading Details...</Text>
+      </View>
+    );
+  }
+
+  const heroGradient = parseGradient(movie?.heroGradient || 'linear-gradient(135deg, #0a0a14, #1a1a3e)');
+  const imageUrl = movie?.posterUrl || (movie?.thumbUrl ? (movie.thumbUrl.startsWith('http') ? movie.thumbUrl : `https://img.ophim.live/uploads/movies/${movie.thumbUrl}`) : null);
+
+  const handlePlayFirst = () => {
+    if (episodes && episodes.length > 0) {
+      const firstEp = episodes[0];
+      const playLink = firstEp.link_embed || firstEp.link_m3u8;
+      if (!playLink || playLink.trim() === '') {
+        alert("Nguồn phát phim này hiện chưa khả dụng (phim bản quyền hoặc link lỗi). Vui lòng thử lại sau hoặc chọn phim khác!");
+        return;
+      }
+      router.push({
+        pathname: `/movie/${movie.id}/play` as any,
+        params: {
+          link: playLink,
+          episodeName: firstEp.name,
+          movieName: movie.title,
+        }
+      });
+    } else {
+      alert("Phim này hiện chưa có tập phim khả dụng!");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -46,13 +134,21 @@ export default function MovieDetailScreen() {
 
           {/* Hero background */}
           <View style={styles.heroBackground}>
-            <LinearGradient
-              colors={heroGradient.colors}
-              locations={heroGradient.locations}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
+            {imageUrl ? (
+              <Image
+                source={{ uri: imageUrl }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+            ) : (
+              <LinearGradient
+                colors={heroGradient.colors}
+                locations={heroGradient.locations}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
             <LinearGradient
               colors={['transparent', 'rgba(8,8,14,0.8)', Theme.colors.bgBase]}
               locations={[0.3, 0.75, 1.0]}
@@ -61,22 +157,22 @@ export default function MovieDetailScreen() {
 
             {/* Title + Meta overlay */}
             <View style={styles.heroContent}>
-              <Text style={styles.title}>{movie.title.toUpperCase()}</Text>
+              <Text style={styles.title}>{movie?.title?.toUpperCase()}</Text>
 
               {/* Badges */}
               <View style={styles.badgeRow}>
-                {movie.genres.map((g: any) => (
+                {movie?.genres?.map((g: any) => (
                   <View key={g} style={styles.genrePill}>
                     <Text style={styles.genrePillText}>{g}</Text>
                   </View>
                 ))}
                 <View style={[styles.genrePill, styles.formatPill]}>
-                  <Text style={styles.genrePillText}>{movie.format}</Text>
+                  <Text style={styles.genrePillText}>{movie?.format}</Text>
                 </View>
               </View>
 
               <Text style={styles.metaText}>
-                ⭐ {movie.rating}   |   {movie.year}
+                ⭐ {movie?.rating}   |   {movie?.year}   |   {movie?.duration}
               </Text>
             </View>
           </View>
@@ -85,7 +181,7 @@ export default function MovieDetailScreen() {
           <View style={styles.ctaRow}>
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={() => router.push(`/movie/${movie.id}/play`)}
+              onPress={handlePlayFirst}
               style={[styles.playBtn, Theme.glows.red]}
             >
               <Text style={styles.playBtnText}>▶ PLAY</Text>
@@ -93,7 +189,7 @@ export default function MovieDetailScreen() {
 
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => toggleWatchlist(movie.id)}
+              onPress={() => toggleWatchlist(movie)}
               style={[
                 styles.watchlistBtn,
                 {
@@ -111,39 +207,64 @@ export default function MovieDetailScreen() {
         {/* AI Summary */}
         <View style={styles.aiSummaryCard}>
           <Text style={styles.aiSummaryTitle}>✨ AI Summary</Text>
-          <Text style={styles.aiSummaryText}>{movie.aiSummary}</Text>
-          <TouchableOpacity activeOpacity={0.7} style={styles.fullSynopsisBtn}>
-            <Text style={styles.fullSynopsisText}>Full synopsis</Text>
-          </TouchableOpacity>
+          <Text style={styles.aiSummaryText}>{movie?.aiSummary}</Text>
+          <Text style={[styles.aiSummaryText, { marginTop: 10, color: Theme.colors.textPrimary }]}>
+            {movie?.description}
+          </Text>
         </View>
+
+        {/* Episodes Section */}
+        {episodes && episodes.length > 0 && (
+          <View style={styles.episodesSection}>
+            <Text style={styles.sectionTitle}>Episodes</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.episodesScroll}>
+              {episodes.map((ep: any) => (
+                <TouchableOpacity
+                  key={ep.slug}
+                  onPress={() => {
+                    const playLink = ep.link_embed || ep.link_m3u8;
+                    if (!playLink || playLink.trim() === '') {
+                      alert("Tập phim này hiện chưa có nguồn phát hoặc lỗi. Vui lòng chọn tập khác!");
+                      return;
+                    }
+                    router.push({
+                      pathname: `/movie/${movie.id}/play` as any,
+                      params: {
+                        link: playLink,
+                        episodeName: ep.name,
+                        movieName: movie.title,
+                      }
+                    });
+                  }}
+                  style={[styles.episodeChip, Theme.glows.red]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.episodeChipText}>
+                    {ep.name.includes('Tập') || ep.name.includes('Full') ? ep.name : `Ep ${ep.name}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Cast list */}
-        <View style={styles.castSection}>
-          <Text style={styles.sectionTitle}>Cast</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.castScroll}>
-            {movie.cast.map((person: any) => (
-              <View key={person.name} style={styles.castItem}>
-                <View style={[styles.castAvatar, { backgroundColor: person.color || Theme.colors.surfaceElevated }]}>
-                  <Text style={styles.castInitials}>{person.initials}</Text>
+        {movie?.cast && movie.cast.length > 0 && (
+          <View style={styles.castSection}>
+            <Text style={styles.sectionTitle}>Cast</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.castScroll}>
+              {movie.cast.map((person: any) => (
+                <View key={person.name} style={styles.castItem}>
+                  <View style={[styles.castAvatar, { backgroundColor: person.color || Theme.colors.surfaceElevated }]}>
+                    <Text style={styles.castInitials}>{person.initials}</Text>
+                  </View>
+                  <Text style={styles.castName} numberOfLines={1}>
+                    {person.name.split(' ')[0]}
+                  </Text>
+                  <Text style={styles.castRole} numberOfLines={1}>
+                    {person.role}
+                  </Text>
                 </View>
-                <Text style={styles.castName} numberOfLines={1}>
-                  {person.name.split(' ')[0]}
-                </Text>
-                <Text style={styles.castRole} numberOfLines={1}>
-                  {person.role}
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* More Like This */}
-        {similar.length > 0 && (
-          <View style={styles.similarSection}>
-            <Text style={styles.sectionTitle}>More Like This</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.similarScroll}>
-              {similar.map((m: any) => (
-                <MovieCard key={m.id} movie={m} variant="portrait" width={110} />
               ))}
             </ScrollView>
           </View>
@@ -157,7 +278,7 @@ export default function MovieDetailScreen() {
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 8 }]}>
         <TouchableOpacity
           style={styles.bottomBarTab}
-          onPress={() => toggleWatchlist(movie.id)}
+          onPress={() => toggleWatchlist(movie)}
           activeOpacity={0.7}
         >
           <Text style={styles.bottomBarIcon}>🔖</Text>
@@ -187,7 +308,7 @@ export default function MovieDetailScreen() {
 
 function ReviewsContent({ movie, reviews, dist }: { movie: any; reviews: any[]; dist: number[] }) {
   const totalRatings = '2,847';
-  const avgRating = movie.rating;
+  const avgRating = movie?.rating || 8.5;
   const stars = Math.round(avgRating / 2);
 
   return (
@@ -374,13 +495,27 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontFamily: Theme.typography.fontFamily,
   },
-  fullSynopsisBtn: {
-    marginTop: 8,
-    alignSelf: 'flex-end',
+  episodesSection: {
+    marginTop: 24,
   },
-  fullSynopsisText: {
-    color: Theme.colors.primary,
+  episodesScroll: {
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  episodeChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: Theme.colors.surface,
+    borderColor: Theme.colors.divider,
+    borderWidth: 1,
+    borderRadius: Theme.roundness.button,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  episodeChipText: {
+    color: Theme.colors.textPrimary,
     fontSize: 13,
+    fontWeight: '600',
     fontFamily: Theme.typography.fontFamily,
   },
   castSection: {
@@ -430,12 +565,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
     fontFamily: Theme.typography.fontFamily,
-  },
-  similarSection: {
-    marginTop: 24,
-  },
-  similarScroll: {
-    paddingHorizontal: 20,
   },
   bottomBar: {
     position: 'absolute',

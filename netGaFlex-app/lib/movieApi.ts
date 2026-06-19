@@ -13,11 +13,14 @@ async function fetchGet(url: string) {
   try {
     const response = await fetch(url);
     if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
       throw new Error(`Lỗi HTTP! Status: ${response.status}`);
     }
     return await response.json();
   } catch (error) {
-    console.error(`Lỗi gọi API OPhim tại URL: ${url}`, error);
+    console.warn(`Lỗi gọi API OPhim tại URL: ${url}`, error);
     return null;
   }
 }
@@ -38,7 +41,7 @@ export async function getHomeData() {
     return {
       success: true,
       data: data.data || null, // Chứa các danh sách phim được phân loại cho trang chủ
-      pathImage: data.data?.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.tv/uploads/images/',
+      pathImage: data.data?.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.live/uploads/movies/',
     };
   }
   return { success: false, data: null, pathImage: '' };
@@ -55,7 +58,7 @@ export async function getNewUpdatedMovies(page: number = 1) {
   if (data && data.status) {
     return {
       movies: data.items || [],
-      pathImage: data.pathImage || 'https://img.ophim.tv/uploads/images/',
+      pathImage: data.pathImage || 'https://img.ophim.live/uploads/movies/',
       pagination: data.pagination || null,
     };
   }
@@ -81,7 +84,7 @@ export async function getMovieDetails(slug: string) {
 // =========================================================================
 // 3. TÌM KIẾM PHIM (Theo từ khóa)
 // =========================================================================
-export async function searchMovies(keyword: string, limit: number = 10) {
+export async function searchMovies(keyword: string, limit: number = 30) {
   const encodedKeyword = encodeURIComponent(keyword);
   const url = `${API_V1_URL}/tim-kiem?keyword=${encodedKeyword}&limit=${limit}`;
   const data = await fetchGet(url);
@@ -89,7 +92,7 @@ export async function searchMovies(keyword: string, limit: number = 10) {
   if (data && data.status === 'success') {
     return {
       movies: data.data.items || [],
-      pathImage: data.data.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.tv/uploads/images/',
+      pathImage: data.data.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.live/uploads/movies/',
       pagination: data.data.params.pagination || null,
     };
   }
@@ -128,7 +131,7 @@ export async function getMoviesByType(type: 'phim-bo' | 'phim-le' | 'hoat-hinh' 
   if (data && data.status === 'success') {
     return {
       movies: data.data.items || [],
-      pathImage: data.data.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.tv/uploads/images/',
+      pathImage: data.data.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.live/uploads/movies/',
       pagination: data.data.params.pagination || null,
     };
   }
@@ -145,7 +148,7 @@ export async function getMoviesByGenre(genreSlug: string, page: number = 1) {
   if (data && data.status === 'success') {
     return {
       movies: data.data.items || [],
-      pathImage: data.data.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.tv/uploads/images/',
+      pathImage: data.data.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.live/uploads/movies/',
       pagination: data.data.params.pagination || null,
     };
   }
@@ -162,7 +165,7 @@ export async function getMoviesByCountry(countrySlug: string, page: number = 1) 
   if (data && data.status === 'success') {
     return {
       movies: data.data.items || [],
-      pathImage: data.data.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.tv/uploads/images/',
+      pathImage: data.data.APP_DOMAIN_CDN_IMAGE || 'https://img.ophim.live/uploads/movies/',
       pagination: data.data.params.pagination || null,
     };
   }

@@ -11,12 +11,12 @@ import { mockUser } from '../../data/mockUser';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [notif, setNotif] = useState(true);
   const insets = useSafeAreaInsets();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.replace('/signin');
   };
 
@@ -35,25 +35,25 @@ export default function ProfileScreen() {
               style={styles.gradientRing}
             />
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>AR</Text>
+              <Text style={styles.avatarText}>{user?.initials || 'U'}</Text>
             </View>
           </View>
 
-          <Text style={styles.userName}>{mockUser.name}</Text>
+          <Text style={styles.userName}>{user?.name || 'User'}</Text>
           <Text style={styles.userMember}>
-            {mockUser.memberType} · Joined {mockUser.joinYear}
+            {user?.memberType || 'Premium Member'} · Joined {user?.joinYear || 2026}
           </Text>
 
           {/* Stats Chips */}
           <View style={styles.statsRow}>
             <View style={styles.statChip}>
-              <Text style={styles.statChipText}>{mockUser.stats.watched} Watched</Text>
+              <Text style={styles.statChipText}>{user?.stats?.watched || 0} Watched</Text>
             </View>
             <View style={styles.statChip}>
-              <Text style={styles.statChipText}>{mockUser.stats.watchlist} Watchlist</Text>
+              <Text style={styles.statChipText}>{user?.stats?.watchlist || 0} Watchlist</Text>
             </View>
             <View style={styles.statChip}>
-              <Text style={styles.statChipText}>{mockUser.stats.avgRating}★ Avg</Text>
+              <Text style={styles.statChipText}>{user?.stats?.avgRating || 4.5}★ Avg</Text>
             </View>
           </View>
         </View>

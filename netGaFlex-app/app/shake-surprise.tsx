@@ -1,26 +1,89 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Theme from '../constants/Theme';
-import { mockMovies, Movie } from '../data/mockMovies';
 import { parseGradient } from '../utils/helpers';
+import { getNewUpdatedMovies, getMovieDetails } from '../lib/movieApi';
 
 export default function ShakeSurpriseScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [surpriseMovie, setSurpriseMovie] = useState<Movie | null>(null);
+  const [surpriseMovie, setSurpriseMovie] = useState<any | null>(null);
+  const [moviesList, setMoviesList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [watching, setWatching] = useState(false);
 
   const floatAnim = useRef(new Animated.Value(0)).current;
 
-  const pickRandomMovie = () => {
-    const randomIdx = Math.floor(Math.random() * mockMovies.length);
-    setSurpriseMovie(mockMovies[randomIdx]);
+  const pickRandomMovieFromList = (list: any[]) => {
+    if (!list || list.length === 0) return;
+    const randomIdx = Math.floor(Math.random() * list.length);
+    const item = list[randomIdx];
+    setSurpriseMovie({
+      id: item.slug,
+      title: item.name,
+      year: item.year || 2026,
+      duration: item.time || '120m',
+      rating: 8.8,
+      genres: ['Phim Mới', 'AI Pick'],
+      format: '4K UltraHD',
+      posterGradient: 'linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 40%, #0f2060 80%)',
+      thumb_url: item.thumb_url,
+      poster_url: item.poster_url,
+    });
+  };
+
+  const handleShuffle = () => {
+    pickRandomMovieFromList(moviesList);
+  };
+
+  const handleWatchNow = async () => {
+    if (!surpriseMovie) return;
+    try {
+      setWatching(true);
+      const details = await getMovieDetails(surpriseMovie.id);
+      if (details && details.episodes && details.episodes.length > 0) {
+        const serverData = details.episodes[0].server_data || [];
+        const firstEp = serverData[0];
+        if (firstEp) {
+          router.push({
+            pathname: `/movie/${surpriseMovie.id}/play` as any,
+            params: {
+              link: firstEp.link_embed || firstEp.link_m3u8,
+              episodeName: firstEp.name,
+              movieName: details.movie?.name || surpriseMovie.title,
+            }
+          });
+          return;
+        }
+      }
+      // Fallback: if no stream, route to detail screen
+      router.push(`/movie/${surpriseMovie.id}`);
+    } catch (e) {
+      console.error('Error starting play from shake surprise:', e);
+      router.push(`/movie/${surpriseMovie.id}`);
+    } finally {
+      setWatching(false);
+    }
   };
 
   useEffect(() => {
-    pickRandomMovie();
+    async function loadShakeMovies() {
+      try {
+        setLoading(true);
+        const res = await getNewUpdatedMovies(1);
+        const list = res?.movies || [];
+        setMoviesList(list);
+        pickRandomMovieFromList(list);
+      } catch (err) {
+        console.error('Error fetching shake surprise movies:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadShakeMovies();
 
     Animated.loop(
       Animated.sequence([
@@ -38,9 +101,19 @@ export default function ShakeSurpriseScreen() {
     ).start();
   }, []);
 
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Theme.colors.primary} />
+        <Text style={{ color: '#fff', marginTop: 12, fontFamily: Theme.typography.fontFamily }}>NixAI is choosing...</Text>
+      </View>
+    );
+  }
+
   if (!surpriseMovie) return null;
 
   const gradient = parseGradient(surpriseMovie.posterGradient);
+  const imageUrl = surpriseMovie.thumb_url ? (surpriseMovie.thumb_url.startsWith('http') ? surpriseMovie.thumb_url : `https://img.ophim.live/uploads/movies/${surpriseMovie.thumb_url}`) : (surpriseMovie.poster_url ? (surpriseMovie.poster_url.startsWith('http') ? surpriseMovie.poster_url : `https://img.ophim.live/uploads/movies/${surpriseMovie.poster_url}`) : null);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -67,24 +140,35 @@ export default function ShakeSurpriseScreen() {
             { transform: [{ translateY: floatAnim }] },
           ]}
         >
-          <LinearGradient
-            colors={gradient.colors}
-            locations={gradient.locations}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.posterTitle} numberOfLines={2}>
-            {surpriseMovie.title}
-          </Text>
-          <Text style={styles.posterYear}>{surpriseMovie.year}</Text>
+          {imageUrl ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : (
+            <LinearGradient
+              colors={gradient.colors}
+              locations={gradient.locations}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+
+          {!imageUrl && (
+            <Text style={styles.posterTitle} numberOfLines={2}>
+              {surpriseMovie.title}
+            </Text>
+          )}
+          {!imageUrl && <Text style={styles.posterYear}>{surpriseMovie.year}</Text>}
         </Animated.View>
 
         {/* Movie Info */}
         <View style={styles.movieInfo}>
-          <Text style={styles.movieTitle}>{surpriseMovie.title}</Text>
+          <Text style={styles.movieTitle} numberOfLines={2}>{surpriseMovie.title}</Text>
           <View style={styles.badgeRow}>
-            {surpriseMovie.genres.map(g => (
+            {surpriseMovie.genres.map((g: string) => (
               <View key={g} style={styles.genrePill}>
                 <Text style={styles.genrePillText}>{g}</Text>
               </View>
@@ -99,11 +183,16 @@ export default function ShakeSurpriseScreen() {
       {/* Action buttons */}
       <View style={styles.footer}>
         <TouchableOpacity
-          onPress={() => router.push(`/movie/${surpriseMovie.id}/play`)}
+          onPress={handleWatchNow}
           style={[styles.watchBtn, Theme.glows.red]}
           activeOpacity={0.85}
+          disabled={watching}
         >
-          <Text style={styles.watchText}>▶ Watch Now</Text>
+          {watching ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.watchText}>▶ Watch Now</Text>
+          )}
         </TouchableOpacity>
 
         <View style={styles.secondaryRow}>
@@ -116,7 +205,7 @@ export default function ShakeSurpriseScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={pickRandomMovie}
+            onPress={handleShuffle}
             style={styles.btn}
             activeOpacity={0.8}
           >
@@ -173,6 +262,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 20,
+    paddingHorizontal: 20,
   },
   poster: {
     width: 200,
@@ -182,6 +272,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    backgroundColor: '#12121e',
   },
   posterTitle: {
     color: 'rgba(245,245,245,0.9)',
@@ -201,6 +292,7 @@ const styles = StyleSheet.create({
   },
   movieInfo: {
     alignItems: 'center',
+    paddingHorizontal: 10,
   },
   movieTitle: {
     color: Theme.colors.textPrimary,
@@ -208,6 +300,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 6,
     fontFamily: Theme.typography.fontFamily,
+    textAlign: 'center',
   },
   badgeRow: {
     flexDirection: 'row',

@@ -11,23 +11,35 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (!email || !password) {
       setError('Please fill in all fields.');
       return;
     }
-    const ok = login(email, password);
-    if (ok) {
+    setLoading(true);
+    setError('');
+    const res = await login(email, password);
+    if (res.success) {
       router.replace('/(tabs)');
     } else {
-      setError('Invalid credentials.');
+      setError(res.error || 'Invalid credentials.');
+      setLoading(false);
     }
   };
 
-  const handleSocial = () => {
-    login('alex@email.com', 'demo');
-    router.replace('/(tabs)');
+  const handleSocial = async () => {
+    setLoading(true);
+    setError('');
+    // For demo/testing, try to sign in with a default credential or show error
+    const res = await login('alex@email.com', 'password123');
+    if (res.success) {
+      router.replace('/(tabs)');
+    } else {
+      setError('Demo login failed. Please sign up or sign in with your email.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -72,9 +84,12 @@ export default function SignInScreen() {
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={handleSignIn}
-            style={[styles.signInBtn, Theme.glows.red]}
+            disabled={loading}
+            style={[styles.signInBtn, Theme.glows.red, loading && { opacity: 0.7 }]}
           >
-            <Text style={styles.signInBtnText}>SIGN IN</Text>
+            <Text style={styles.signInBtnText}>
+              {loading ? 'SIGNING IN...' : 'SIGN IN'}
+            </Text>
           </TouchableOpacity>
 
           {/* Divider */}

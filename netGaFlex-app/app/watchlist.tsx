@@ -1,18 +1,17 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, PanResponder, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, PanResponder, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Theme from '../constants/Theme';
 import { useApp } from '../context/AppContext';
-import { mockMovies, Movie } from '../data/mockMovies';
 import { parseGradient } from '../utils/helpers';
 
 export default function WatchlistScreen() {
   const router = useRouter();
-  const { watchlist, removeFromWatchlist } = useApp();
+  const { favoritesList, removeFromWatchlist } = useApp();
   const insets = useSafeAreaInsets();
-  const items = mockMovies.filter(m => watchlist.includes(m.id));
+  const items = favoritesList || [];
 
   if (items.length === 0) {
     return <EmptyWatchlist router={router} insets={insets} />;
@@ -51,7 +50,7 @@ export default function WatchlistScreen() {
 }
 
 interface SwipeableItemProps {
-  movie: Movie;
+  movie: any;
   onDelete: () => void;
   onTap: () => void;
 }
@@ -97,7 +96,10 @@ function SwipeableItem({ movie, onDelete, onTap }: SwipeableItemProps) {
 
   if (removed) return null;
 
-  const gradient = parseGradient(movie.posterGradient);
+  const gradient = parseGradient(movie.posterGradient || 'linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 40%, #0f2060 80%)');
+  const imageUrl = movie.thumbUrl || movie.posterUrl || 
+    (movie.thumb_url ? (movie.thumb_url.startsWith('http') ? movie.thumb_url : `https://img.ophim.live/uploads/movies/${movie.thumb_url}`) : 
+     (movie.poster_url ? (movie.poster_url.startsWith('http') ? movie.poster_url : `https://img.ophim.live/uploads/movies/${movie.poster_url}`) : null));
 
   return (
     <View style={styles.swipeContainer}>
@@ -126,21 +128,29 @@ function SwipeableItem({ movie, onDelete, onTap }: SwipeableItemProps) {
           style={styles.touchableCard}
         >
           <View style={styles.poster}>
-            <LinearGradient
-              colors={gradient.colors}
-              locations={gradient.locations}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
+            {imageUrl ? (
+              <Image
+                source={{ uri: imageUrl }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+            ) : (
+              <LinearGradient
+                colors={gradient.colors}
+                locations={gradient.locations}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
           </View>
 
           <View style={styles.cardInfo}>
             <Text style={styles.movieTitle} numberOfLines={1}>
-              {movie.title}
+              {movie.title || movie.name}
             </Text>
             <Text style={styles.movieMeta}>
-              {movie.durationMin} min · {movie.genres[0]}
+              {movie.durationMin || '120'} min · {movie.genres ? movie.genres[0] : 'Movie'}
             </Text>
           </View>
 

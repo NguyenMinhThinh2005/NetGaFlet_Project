@@ -8,17 +8,29 @@ import { getPasswordStrength, strengthColor, strengthLabel } from '../utils/help
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const strength = getPasswordStrength(password);
 
-  const handleCreate = () => {
-    if (!name || !email || !password) return;
-    login(email, password);
-    router.replace('/genre-setup');
+  const handleCreate = async () => {
+    if (!name || !email || !password) {
+      setError('Please fill in all fields.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    const res = await signUp(email, password, name);
+    if (res.success) {
+      router.replace('/genre-setup');
+    } else {
+      setError(res.error || 'Failed to create account.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,13 +74,18 @@ export default function SignUpScreen() {
             </View>
           )}
 
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           {/* Sign Up CTA */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={handleCreate}
-            style={[styles.btn, Theme.glows.red]}
+            disabled={loading}
+            style={[styles.btn, Theme.glows.red, loading && { opacity: 0.7 }]}
           >
-            <Text style={styles.btnText}>CREATE ACCOUNT</Text>
+            <Text style={styles.btnText}>
+              {loading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
+            </Text>
           </TouchableOpacity>
 
           {/* Divider */}
@@ -235,6 +252,13 @@ const styles = StyleSheet.create({
     color: Theme.colors.primary,
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: Theme.typography.fontFamily,
+  },
+  errorText: {
+    color: Theme.colors.primary,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 4,
     fontFamily: Theme.typography.fontFamily,
   },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Theme from '../../constants/Theme';
@@ -8,7 +8,7 @@ import { parseGradient } from '../../utils/helpers';
 import { Movie } from '../../data/mockMovies';
 
 interface HeroBannerProps {
-  movie: Movie;
+  movie: any;
 }
 
 export default function HeroBanner({ movie }: HeroBannerProps) {
@@ -18,19 +18,31 @@ export default function HeroBanner({ movie }: HeroBannerProps) {
   if (!movie) return null;
 
   const inList = isInWatchlist(movie.id);
-  const gradient = parseGradient(movie.heroGradient);
+  const gradient = parseGradient(movie.heroGradient || 'linear-gradient(135deg, #1A1A24, #111118)');
   const screenWidth = Dimensions.get('window').width;
+
+  const imageUrl = movie.thumbUrl || movie.posterUrl || 
+    (movie.thumb_url ? (movie.thumb_url.startsWith('http') ? movie.thumb_url : `https://img.ophim.live/uploads/movies/${movie.thumb_url}`) : 
+     (movie.poster_url ? (movie.poster_url.startsWith('http') ? movie.poster_url : `https://img.ophim.live/uploads/movies/${movie.poster_url}`) : null));
 
   return (
     <View style={[styles.container, { width: screenWidth }]}>
-      {/* Background gradient */}
-      <LinearGradient
-        colors={gradient.colors}
-        locations={gradient.locations}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* Background Image or Gradient Fallback */}
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
+      ) : (
+        <LinearGradient
+          colors={gradient.colors}
+          locations={gradient.locations}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
 
       {/* Vertical fade overlay */}
       <LinearGradient
@@ -49,7 +61,7 @@ export default function HeroBanner({ movie }: HeroBannerProps) {
 
           {/* Genres + format badges */}
           <View style={styles.badgeRow}>
-            {movie.genres.map(g => (
+            {movie.genres.map((g: any) => (
               <View key={g} style={styles.genrePill}>
                 <Text style={styles.genrePillText}>{g}</Text>
               </View>

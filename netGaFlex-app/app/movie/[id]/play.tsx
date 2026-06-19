@@ -1,28 +1,42 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { StatusBar } from 'expo-status-bar';
+import { WebView } from 'react-native-webview';
 import Theme from '../../../constants/Theme';
-import { getMovieById, mockMovies } from '../../../data/mockMovies';
-import { formatTime } from '../../../utils/helpers';
+import { getMovieById } from '../../../data/mockMovies';
+import { useApp } from '../../../context/AppContext';
 
 export default function VideoPlayerScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, link, episodeName, movieName } = useLocalSearchParams<{
+    id: string;
+    link?: string;
+    episodeName?: string;
+    movieName?: string;
+  }>();
   const router = useRouter();
-  const movie = getMovieById(id || '') || mockMovies[0];
+  const { watchHistory, addToHistory } = useApp();
 
-  const totalSeconds = (movie.durationMin || 148) * 60;
+  const movie = getMovieById(id || '') || {
+    id: id || 'movie',
+    title: movieName || 'Movie',
+    durationMin: 120,
+    type: 'movie',
+  };
 
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [currentTime, setCurrentTime] = useState(Math.floor(totalSeconds * 0.42));
-  const [showControls, setShowControls] = useState(true);
-  const controlsTimeout = useRef<any>(null);
+  const totalSeconds = (movie.durationMin || 120) * 60;
 
-  // Auto-play timer
+  // Initialize playback time from Supabase watch history if available
+  const savedItem = watchHistory.find((h: any) => h.movieId === (id || movie.id));
+  const savedSeconds = savedItem ? Math.floor(savedItem.progress * totalSeconds) : 0;
+
+  const [currentTime, setCurrentTime] = useState(savedSeconds || Math.floor(totalSeconds * 0.05));
+  const isPlaying = true; // Timer always runs in background while watching
+
+  // Auto-play time progression (keeps running in background to update watch history)
   useEffect(() => {
-    if (!isPlaying) return;
     const interval = setInterval(() => {
       setCurrentTime(t => {
         if (t >= totalSeconds) {
@@ -35,14 +49,40 @@ export default function VideoPlayerScreen() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isPlaying, totalSeconds, movie.id]);
+  }, [totalSeconds, movie.id]);
 
-  // Auto-hide controls
+  // Periodic progress saving to Supabase (every 10 seconds)
   useEffect(() => {
-    if (!showControls) return;
-    controlsTimeout.current = setTimeout(() => setShowControls(false), 3500);
-    return () => clearTimeout(controlsTimeout.current);
-  }, [showControls, currentTime]);
+    const saveInterval = setInterval(() => {
+      addToHistory(
+        id || movie.id,
+        movieName || movie.title,
+        episodeName || 'Full',
+        currentTime,
+        totalSeconds
+      );
+    }, 10000);
+
+    return () => clearInterval(saveInterval);
+  }, [currentTime, id, movieName, movie.id, movie.title, episodeName, totalSeconds]);
+
+  // Save progress on unmount / exit
+  const lastTimeRef = useRef(currentTime);
+  useEffect(() => {
+    lastTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  useEffect(() => {
+    return () => {
+      addToHistory(
+        id || movie.id,
+        movieName || movie.title,
+        episodeName || 'Full',
+        lastTimeRef.current,
+        totalSeconds
+      );
+    };
+  }, [id, movieName, movie.id, movie.title, episodeName, totalSeconds]);
 
   // Lock orientation to landscape on mount, restore to portrait on unmount
   useEffect(() => {
@@ -66,127 +106,59 @@ export default function VideoPlayerScreen() {
     };
   }, []);
 
-  const progress = currentTime / totalSeconds;
-
-  const skip = useCallback((sec: number) => {
-    setCurrentTime(t => Math.max(0, Math.min(totalSeconds, t + sec)));
-  }, [totalSeconds]);
-
-  const toggleControls = () => {
-    setShowControls(v => !v);
-  };
-
-  // Draggable Progress simulation on tap
-  const handleProgressTap = (e: any) => {
-    // Basic tap simulation for scrubber jump
-    skip(90); // skip 90s forward as simple demo jump, or just skip forward
-  };
-
-  // Landscape dimensions rotation
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-  // Native orientation is landscape, so rotationStyle is empty on all platforms
-  const rotationStyle = {};
+  const isValidUrl = link && (link.startsWith('http://') || link.startsWith('https://'));
 
   return (
     <View style={styles.outerContainer}>
       <StatusBar hidden={true} />
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={toggleControls}
-        style={[styles.container, rotationStyle]}
-      >
-        <LinearGradient
-          colors={['#0a0a0f', '#1a1a2e', '#0d0d1a']}
-          style={StyleSheet.absoluteFill}
-        />
 
-        {/* Video simulation label */}
-        <View style={styles.videoContent}>
-          <Text style={styles.videoTitle}>{movie.title.toUpperCase()}</Text>
-        </View>
-
-        {/* Controls Overlay */}
-        <View style={[styles.controlsOverlay, { opacity: showControls ? 1 : 0 }]}>
-          
-          {/* Top Bar */}
-          <LinearGradient
-            colors={['rgba(0,0,0,0.85)', 'transparent']}
-            style={styles.topBar}
-          >
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backBtn}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.backBtnText}>← Back</Text>
-            </TouchableOpacity>
-            
-            <Text style={styles.topTitle}>
-              {movie.title} · {movie.type === 'series' ? 'S1 E3' : 'Feature'}
-            </Text>
-          </LinearGradient>
-
-          {/* Bottom Bar */}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.85)']}
-            style={styles.bottomBar}
-          >
-            {/* Skip Intro */}
-            <View style={styles.skipIntroRow}>
-              <TouchableOpacity
-                onPress={() => skip(90)}
-                style={[styles.skipIntroBtn, Theme.glows.red]}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.skipIntroText}>Skip Intro →</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Progress Bar slider */}
-            <TouchableOpacity
-              onPress={handleProgressTap}
-              activeOpacity={1}
-              style={styles.progressBarTrack}
-            >
-              <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
-              <View style={[styles.scrubberDot, { left: `${progress * 100}%` }]} />
-            </TouchableOpacity>
-
-            {/* Time labels */}
-            <View style={styles.timeLabelRow}>
-              <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-              <Text style={styles.timeText}>{formatTime(totalSeconds)}</Text>
-            </View>
-
-            {/* Controls Row */}
-            <View style={styles.controlsRow}>
-              <TouchableOpacity onPress={() => skip(-10)} style={styles.controlBtn}>
-                <Text style={styles.controlText}>⏮ 10</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => setIsPlaying(v => !v)} style={styles.playPauseBtn}>
-                <Text style={styles.playPauseText}>{isPlaying ? '⏸' : '▶'}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => skip(10)} style={styles.controlBtn}>
-                <Text style={styles.controlText}>10 ⏭</Text>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </View>
-
-        {/* Right side controls overlay */}
-        {showControls && (
-          <View style={styles.rightControls}>
-            <TouchableOpacity style={styles.rightBtn}>
-              <Text style={styles.rightBtnText}>🔊</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.rightBtn}>
-              <Text style={styles.rightBtnText}>⋮</Text>
-            </TouchableOpacity>
+      {/* Main Video Stream Container */}
+      <View style={StyleSheet.absoluteFill}>
+        {isValidUrl ? (
+          Platform.OS === 'web' ? (
+            <iframe
+              src={link}
+              style={{ width: '100%', height: '100%', border: 0 }}
+              allowFullScreen
+              allow="autoplay; encrypted-media"
+            />
+          ) : (
+            <WebView
+              source={{ uri: link }}
+              style={{ flex: 1, backgroundColor: '#000' }}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              allowsFullscreenVideo={true}
+              mediaPlaybackRequiresUserAction={false}
+            />
+          )
+        ) : (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Nguồn phát phim này hiện chưa khả dụng. Vui lòng quay lại chọn tập khác hoặc phim khác!</Text>
           </View>
         )}
-      </TouchableOpacity>
+      </View>
+
+      {/* Top HUD Overlay (Contains Back button & Movie Details) */}
+      <View style={styles.topOverlayContainer} pointerEvents="box-none">
+        <LinearGradient
+          colors={['rgba(0,0,0,0.85)', 'transparent']}
+          style={styles.topOverlayGradient}
+          pointerEvents="box-none"
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButtonPill}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.movieTitleLabel}>
+            {movieName || movie.title} · {episodeName || 'Feature'}
+          </Text>
+        </LinearGradient>
+      </View>
     </View>
   );
 }
@@ -195,157 +167,57 @@ const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
     backgroundColor: '#000',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  container: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  videoContent: {
+  topOverlayContainer: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
-    top: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 80,
+    zIndex: 999,
   },
-  videoTitle: {
-    color: 'rgba(255,255,255,0.03)',
-    fontSize: 54,
-    fontWeight: '900',
-    letterSpacing: 4,
-    fontFamily: Theme.typography.fontFamily,
-  },
-  controlsOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'space-between',
-    zIndex: 10,
-  },
-  topBar: {
+  topOverlayGradient: {
+    flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 12,
   },
-  backBtn: {
-    padding: 4,
+  backButtonPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  backBtnText: {
-    color: Theme.colors.textPrimary,
+  backButtonText: {
+    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
     fontFamily: Theme.typography.fontFamily,
   },
-  topTitle: {
-    color: Theme.colors.textSecondary,
-    fontSize: 13,
-    fontFamily: Theme.typography.fontFamily,
-  },
-  bottomBar: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    paddingTop: 32,
-  },
-  skipIntroRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 12,
-  },
-  skipIntroBtn: {
-    height: 36,
-    borderRadius: 100,
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  skipIntroText: {
-    color: Theme.colors.textPrimary,
-    fontSize: 13,
+  movieTitleLabel: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
+    marginLeft: 16,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
     fontFamily: Theme.typography.fontFamily,
   },
-  progressBarTrack: {
-    width: '100%',
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 2,
-    position: 'relative',
-    marginBottom: 8,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: Theme.colors.primary,
-    borderRadius: 2,
-  },
-  scrubberDot: {
-    position: 'absolute',
-    top: -5,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: Theme.colors.textPrimary,
-    marginLeft: -7,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-  },
-  timeLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  timeText: {
-    color: Theme.colors.textPrimary,
-    fontSize: 12,
-    fontFamily: Theme.typography.fontFamily,
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  errorContainer: {
+    flex: 1,
+    backgroundColor: '#050508',
     justifyContent: 'center',
-    gap: 36,
-  },
-  controlBtn: {
-    padding: 8,
-  },
-  controlText: {
-    color: Theme.colors.textPrimary,
-    fontSize: 20,
-    fontFamily: Theme.typography.fontFamily,
-  },
-  playPauseBtn: {
-    padding: 8,
-  },
-  playPauseText: {
-    color: Theme.colors.textPrimary,
-    fontSize: 36,
-    fontFamily: Theme.typography.fontFamily,
-  },
-  rightControls: {
-    position: 'absolute',
-    right: 24,
-    bottom: '40%',
-    gap: 16,
     alignItems: 'center',
-    zIndex: 12,
   },
-  rightBtn: {
-    padding: 8,
-  },
-  rightBtnText: {
-    color: Theme.colors.textPrimary,
-    fontSize: 20,
+  errorText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: Theme.typography.fontFamily,
   },
 });
