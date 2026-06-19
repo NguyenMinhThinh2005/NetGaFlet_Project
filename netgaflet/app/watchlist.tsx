@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     color: Theme.colors.textPrimary,
   },
   swipeCard: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.roundness.card,
   },

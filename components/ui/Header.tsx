@@ -13,14 +13,14 @@ export default function Header() {
       <View style={styles.rightIcons}>
         <TouchableOpacity 
           activeOpacity={0.7} 
-          onPress={() => router.push('/downloads')}
+          onPress={() => router.push('/downloads' as any)}
           style={styles.iconBtn}
         >
           <Feather name="download" size={22} color={Theme.colors.primary} />
         </TouchableOpacity>
         <TouchableOpacity 
           activeOpacity={0.7} 
-          onPress={() => router.push('/notifications')}
+          onPress={() => router.push('/notifications' as any)}
           style={styles.iconBtn}
         >
           <View style={styles.bellContainer}>

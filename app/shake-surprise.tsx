@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.bgBase,
   },
   bloom: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(229,9,20,0.06)',
   },
   backBtn: {

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { StatusBar } from 'expo-status-bar';
 import Theme from '../../../constants/Theme';
 import { getMovieById, mockMovies } from '../../../data/mockMovies';
 import { formatTime } from '../../../utils/helpers';
@@ -42,6 +44,28 @@ export default function VideoPlayerScreen() {
     return () => clearTimeout(controlsTimeout.current);
   }, [showControls, currentTime]);
 
+  // Lock orientation to landscape on mount, restore to portrait on unmount
+  useEffect(() => {
+    async function lockOrientation() {
+      try {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      } catch (error) {
+        console.warn('Could not lock screen orientation:', error);
+      }
+    }
+    lockOrientation();
+    return () => {
+      async function restoreOrientation() {
+        try {
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        } catch (error) {
+          console.warn('Could not restore screen orientation:', error);
+        }
+      }
+      restoreOrientation();
+    };
+  }, []);
+
   const progress = currentTime / totalSeconds;
 
   const skip = useCallback((sec: number) => {
@@ -60,15 +84,12 @@ export default function VideoPlayerScreen() {
 
   // Landscape dimensions rotation
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-  // For web simulator or rotated layout
-  const rotationStyle = Platform.OS === 'web' ? {} : {
-    width: screenHeight,
-    height: screenWidth,
-    transform: [{ rotate: '90deg' }],
-  };
+  // Native orientation is landscape, so rotationStyle is empty on all platforms
+  const rotationStyle = {};
 
   return (
     <View style={styles.outerContainer}>
+      <StatusBar hidden={true} />
       <TouchableOpacity
         activeOpacity={1}
         onPress={toggleControls}

@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   playOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.25)',
     alignItems: 'center',
     justifyContent: 'center',

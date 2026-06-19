@@ -57,14 +57,14 @@ export default function SettingsScreen() {
       rows: [
         { key: 'parentalControl', label: 'Parental Controls', icon: '🔒', toggle: true },
         { label: 'Clear Watch History', icon: '🗑', toggle: false, onClick: () => { } },
-        { label: 'Privacy Policy', icon: '📄', toggle: false, onClick: () => router.push('/privacy-policy') },
+        { label: 'Privacy Policy', icon: '📄', toggle: false, onClick: () => router.push('/privacy-policy' as any) },
       ],
     },
     {
       label: 'Account',
       rows: [
-        { label: 'Change Password', icon: '🔑', toggle: false, onClick: () => router.push('/change-password') },
-        { label: 'Manage Subscription', icon: '💳', toggle: false, onClick: () => router.push('/manage-subscription') },
+        { label: 'Change Password', icon: '🔑', toggle: false, onClick: () => router.push('/change-password' as any) },
+        { label: 'Manage Subscription', icon: '💳', toggle: false, onClick: () => router.push('/manage-subscription' as any) },
         {
           label: 'Sign Out',
           icon: '🚪',
