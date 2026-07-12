@@ -54,15 +54,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [hasOnboarded, setHasOnboarded] = useState(false);
 
+  // Helper: wait for a given number of milliseconds
+  const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
   // Sync session and fetch profile
   const syncSession = async (currentSession: any) => {
     setSession(currentSession);
     if (currentSession?.user) {
       try {
         // Fetch profiles for the user
-        const { data: profiles, error } = await getUserProfiles(currentSession.user.id);
-        if (profiles && profiles.length > 0) {
-          const profile = profiles[0];
+        const { data: profiles } = await getUserProfiles(currentSession.user.id);
+
+        let resolvedProfiles = profiles;
+
+        // If no profile yet, the handle_new_user DB trigger may still be running.
+        // Wait once and retry before giving up.
+        if (!resolvedProfiles || resolvedProfiles.length === 0) {
+          await wait(1500);
+          const { data: retryProfiles } = await getUserProfiles(currentSession.user.id);
+          resolvedProfiles = retryProfiles;
+        }
+
+        if (resolvedProfiles && resolvedProfiles.length > 0) {
+          const profile = resolvedProfiles[0];
           setActiveProfile(profile);
 
           // Get stats from DB
@@ -77,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq('profile_id', profile.id);
 
           const name = profile.name || currentSession.user.user_metadata?.full_name || 'User';
-          
+
           setUser({
             id: profile.id,
             name,
@@ -96,14 +110,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             subtitleLanguage: 'English',
             notificationsEnabled: true,
           });
-        } else {
-          // Trigger handle_new_user might be running, wait a little bit and retry
-          setTimeout(async () => {
-            const { data: retryProfiles } = await getUserProfiles(currentSession.user.id);
-            if (retryProfiles && retryProfiles.length > 0) {
-              syncSession(currentSession);
-            }
-          }, 1500);
         }
       } catch (err) {
         console.error('Lỗi khi tải profile từ Supabase:', err);
@@ -120,11 +126,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncSession(initialSession).finally(() => setLoading(false));
     });
 
-    // Listen to changes
+    // Listen to auth state changes.
+    // IMPORTANT: setLoading(false) is in a finally block so it always fires,
+    // even if syncSession throws or navigation unmounts the component.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       setLoading(true);
-      await syncSession(newSession);
-      setLoading(false);
+      try {
+        await syncSession(newSession);
+      } catch (err) {
+        console.error('onAuthStateChange syncSession error:', err);
+      } finally {
+        setLoading(false);
+      }
     });
 
     return () => {

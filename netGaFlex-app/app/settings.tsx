@@ -14,7 +14,6 @@ export default function SettingsScreen() {
     notifications: true,
     autoplay: true,
     hdr: true,
-    downloadOnWifi: true,
     subtitles: false,
     parentalControl: false,
   });
@@ -46,12 +45,7 @@ export default function SettingsScreen() {
         { key: 'subtitles', label: 'Subtitles', icon: '💬', toggle: true },
       ],
     },
-    {
-      label: 'Downloads',
-      rows: [
-        { key: 'downloadOnWifi', label: 'Download on Wi-Fi Only', icon: '📥', toggle: true },
-      ],
-    },
+
     {
       label: 'Privacy',
       rows: [

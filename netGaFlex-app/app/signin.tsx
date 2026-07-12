@@ -20,11 +20,17 @@ export default function SignInScreen() {
     }
     setLoading(true);
     setError('');
-    const res = await login(email, password);
-    if (res.success) {
-      router.replace('/(tabs)');
-    } else {
-      setError(res.error || 'Invalid credentials.');
+    try {
+      const res = await login(email, password);
+      if (!res.success) {
+        setError(res.error || 'Invalid credentials.');
+      }
+      // On success: navigation is handled by onAuthStateChange in AuthContext.
+      // Do NOT call router.replace here — it races with the global listener.
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      // Always reset local loading so the button is never stuck.
       setLoading(false);
     }
   };
@@ -32,12 +38,15 @@ export default function SignInScreen() {
   const handleSocial = async () => {
     setLoading(true);
     setError('');
-    // For demo/testing, try to sign in with a default credential or show error
-    const res = await login('alex@email.com', 'password123');
-    if (res.success) {
-      router.replace('/(tabs)');
-    } else {
-      setError('Demo login failed. Please sign up or sign in with your email.');
+    try {
+      const res = await login('alex@email.com', 'password123');
+      if (!res.success) {
+        setError('Demo login failed. Please sign up or sign in with your email.');
+      }
+      // On success: navigation is handled by onAuthStateChange in AuthContext.
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
       setLoading(false);
     }
   };

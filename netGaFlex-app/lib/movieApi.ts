@@ -1,6 +1,9 @@
 // =========================================================================
 // OPHIM API SERVICE WRAPPER
 // Chứa toàn bộ các hàm gọi API lấy danh sách, thông tin và link stream phim từ OPhim
+// TODO(Architecture): Đảm bảo toàn bộ dữ liệu phim (danh sách, chi tiết, stream) 
+// BẮT BUỘC phải được gọi trực tiếp thông qua Movie API (REST API). 
+// TUYỆT ĐỐI KHÔNG sử dụng Local Storage để cache file media hay thực hiện chức năng Download.
 // =========================================================================
 
 const BASE_URL = 'https://ophim1.com';

@@ -24,11 +24,21 @@ export default function SignUpScreen() {
     }
     setLoading(true);
     setError('');
-    const res = await signUp(email, password, name);
-    if (res.success) {
-      router.replace('/genre-setup');
-    } else {
-      setError(res.error || 'Failed to create account.');
+    try {
+      const res = await signUp(email, password, name);
+      if (res.success) {
+        // On success: navigate to genre-setup for new users.
+        // We navigate directly here (not via onAuthStateChange) because
+        // signUp may not immediately trigger a SESSION event if email
+        // confirmation is required. router.replace is safe after await.
+        router.replace('/genre-setup');
+      } else {
+        setError(res.error || 'Failed to create account.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      // Always reset loading state — prevents the button being stuck forever.
       setLoading(false);
     }
   };
