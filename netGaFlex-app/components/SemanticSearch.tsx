@@ -11,7 +11,10 @@ import {
   Keyboard,
   Animated,
   Platform,
+  Modal,
+  SafeAreaView,
 } from 'react-native';
+import Constants from 'expo-constants';
 
 // =========================================================================
 // Types
@@ -37,16 +40,36 @@ interface SearchState {
 }
 
 // =========================================================================
-// Config — đổi sang IP thực của máy tính nếu chạy trên thiết bị vật lý
-// Android emulator dùng 10.0.2.2, iOS simulator dùng localhost
+// Config — Backend URL cho Semantic Search
+// • Expo Go trên thiết bị vật lý: dùng IP LAN của máy chủ (manifest2 debuggerHost)
+// • Android Emulator: 10.0.2.2 trỏ đến localhost của máy host
+// • iOS Simulator: localhost
+// • Nếu không detect được: fallback về YOUR_LAN_IP — thay bằng IP thật của bạn
+//   Ví dụ: http://192.168.1.5:3000
 // =========================================================================
-const BACKEND_URL =
-  Platform.OS === 'android'
-    ? 'http://10.0.2.2:3000'
-    : 'http://localhost:3000';
+function getBackendUrl(): string {
+  // Thử lấy IP từ Expo manifest (hoạt động khi chạy qua Expo Go trên device)
+  const debuggerHost =
+    Constants.expoConfig?.hostUri ??
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost ??
+    (Constants as any).manifest?.debuggerHost;
+
+  if (debuggerHost) {
+    const ip = debuggerHost.split(':')[0];
+    return `http://${ip}:3000`;
+  }
+
+  // Fallback theo platform
+  if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
+  return 'http://localhost:3000'; // iOS simulator
+}
+
+const BACKEND_URL = getBackendUrl();
 
 // =========================================================================
 // SemanticSearch Component
+// Thiết kế dạng compact strip — search bar hiển thị inline trên màn hình,
+// kết quả hiện qua Modal overlay để không phá vỡ layout ScrollView.
 // =========================================================================
 export default function SemanticSearch() {
   const [query, setQuery] = useState('');
@@ -56,25 +79,23 @@ export default function SemanticSearch() {
     error: null,
     searched: false,
   });
+  const [modalVisible, setModalVisible] = useState(false);
 
   const inputRef = useRef<TextInput>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // --- Animate results in ---
   const fadeIn = () => {
     fadeAnim.setValue(0);
-    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }).start();
   };
 
-  // =========================================================================
-  // Gọi backend POST /api/search/semantic
-  // =========================================================================
   const handleSearch = useCallback(async () => {
     const trimmed = query.trim();
     if (!trimmed) return;
 
     Keyboard.dismiss();
     setState({ movies: [], loading: true, error: null, searched: true });
+    setModalVisible(true);
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/search/semantic`, {
@@ -83,9 +104,7 @@ export default function SemanticSearch() {
         body: JSON.stringify({ query: trimmed, threshold: 0.5, limit: 15 }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Server trả về lỗi: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Server lỗi: ${response.status}`);
 
       const json = await response.json();
       console.log('[SemanticSearch] Results:', JSON.stringify(json, null, 2));
@@ -103,9 +122,12 @@ export default function SemanticSearch() {
     }
   }, [query]);
 
-  // =========================================================================
-  // Render một kết quả phim
-  // =========================================================================
+  const handleClose = () => {
+    setModalVisible(false);
+    setState({ movies: [], loading: false, error: null, searched: false });
+    setQuery('');
+  };
+
   const renderItem = ({ item }: { item: MovieResult }) => {
     const thumbUri = item.thumb_url
       ? item.thumb_url.startsWith('http')
@@ -126,21 +148,13 @@ export default function SemanticSearch() {
           </View>
         )}
         <View style={styles.cardInfo}>
-          <Text style={styles.movieName} numberOfLines={2}>
-            {item.name}
-          </Text>
+          <Text style={styles.movieName} numberOfLines={2}>{item.name}</Text>
           {item.origin_name ? (
-            <Text style={styles.originName} numberOfLines={1}>
-              {item.origin_name}
-            </Text>
+            <Text style={styles.originName} numberOfLines={1}>{item.origin_name}</Text>
           ) : null}
           <View style={styles.metaRow}>
             {item.year ? <Text style={styles.metaText}>{item.year}</Text> : null}
-            {genres ? (
-              <Text style={styles.metaText} numberOfLines={1}>
-                {genres}
-              </Text>
-            ) : null}
+            {genres ? <Text style={styles.metaText} numberOfLines={1}>{genres}</Text> : null}
           </View>
           <View style={styles.similarityBadge}>
             <Text style={styles.similarityText}>Độ khớp {similarityPct}%</Text>
@@ -150,140 +164,233 @@ export default function SemanticSearch() {
     );
   };
 
-  // =========================================================================
-  // Render
-  // =========================================================================
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <Text style={styles.header}>🔍 Tìm Kiếm Thông Minh</Text>
-      <Text style={styles.subHeader}>
-        Mô tả bộ phim bạn muốn xem bằng ngôn ngữ tự nhiên
-      </Text>
+    return (
+    <>
+      {/* ── Compact AI search bar strip (inline on home screen) ── */}
+      <View style={styles.strip}>
+        <View style={styles.stripInner}>
+          <View style={styles.aiBadge}>
+            <Text style={styles.aiBadgeText}>AI</Text>
+          </View>
 
-      {/* Search bar */}
-      <View style={styles.searchRow}>
-        <TextInput
-          ref={inputRef}
-          style={styles.input}
-          value={query}
-          onChangeText={setQuery}
-          placeholder='Ví dụ: "phim hành động Mỹ với siêu anh hùng"'
-          placeholderTextColor="#666"
-          returnKeyType="search"
-          onSubmitEditing={handleSearch}
-          multiline={false}
-        />
-        <TouchableOpacity
-          style={[styles.searchBtn, !query.trim() && styles.searchBtnDisabled]}
-          onPress={handleSearch}
-          disabled={!query.trim() || state.loading}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.searchBtnText}>Tìm</Text>
-        </TouchableOpacity>
+          <TextInput
+            ref={inputRef}
+            style={styles.stripInput}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Tìm phim bằng ngôn ngữ tự nhiên..."
+            placeholderTextColor="#555"
+            returnKeyType="search"
+            onSubmitEditing={handleSearch}
+            multiline={false}
+          />
+
+          <TouchableOpacity
+            style={[styles.stripBtn, !query.trim() && styles.stripBtnDisabled]}
+            onPress={handleSearch}
+            disabled={!query.trim() || state.loading}
+            activeOpacity={0.8}
+          >
+            {state.loading && !modalVisible ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.stripBtnText}>🔍</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.stripHint}>
+          Mô tả bộ phim bạn muốn xem — AI sẽ tìm cho bạn
+        </Text>
       </View>
 
-      {/* Loading */}
-      {state.loading && (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#E50914" />
-          <Text style={styles.loadingText}>Đang phân tích câu hỏi...</Text>
-        </View>
-      )}
+      {/* ── Modal: full-screen results overlay ── */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleClose}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          {/* Modal header with search bar */}
+          <View style={styles.modalHeader}>
+            <View style={styles.modalSearchRow}>
+              <TextInput
+                style={styles.modalInput}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Tìm phim..."
+                placeholderTextColor="#555"
+                returnKeyType="search"
+                onSubmitEditing={handleSearch}
+                autoFocus
+              />
+              <TouchableOpacity
+                style={styles.stripBtn}
+                onPress={handleSearch}
+                disabled={!query.trim() || state.loading}
+                activeOpacity={0.8}
+              >
+                {state.loading ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.stripBtnText}>🔍</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={handleClose} style={styles.closeBtn} activeOpacity={0.8}>
+              <Text style={styles.closeBtnText}>× Đóng</Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* Error */}
-      {!state.loading && state.error && (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>⚠️ {state.error}</Text>
-          <Text style={styles.errorHint}>
-            Hãy đảm bảo backend đang chạy tại {BACKEND_URL}
-          </Text>
-        </View>
-      )}
+          {/* Loading */}
+          {state.loading && (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color="#E50914" />
+              <Text style={styles.loadingText}>Đang phân tích câu hỏi...</Text>
+            </View>
+          )}
 
-      {/* Empty state */}
-      {!state.loading && !state.error && state.searched && state.movies.length === 0 && (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>Không tìm thấy phim phù hợp 😢</Text>
-          <Text style={styles.emptyHint}>
-            Thử mô tả cụ thể hơn hoặc kiểm tra xem database đã có dữ liệu chưa.
-          </Text>
-        </View>
-      )}
+          {/* Error */}
+          {!state.loading && state.error && (
+            <View style={styles.center}>
+              <Text style={styles.errorText}>⚠️ {state.error}</Text>
+              <Text style={styles.errorHint}>Backend: {BACKEND_URL}</Text>
+            </View>
+          )}
 
-      {/* Results */}
-      {!state.loading && state.movies.length > 0 && (
-        <Animated.View style={[styles.resultsContainer, { opacity: fadeAnim }]}>
-          <Text style={styles.resultCount}>
-            Tìm thấy {state.movies.length} kết quả cho "{query}"
-          </Text>
-          <FlatList
-            data={state.movies}
-            keyExtractor={(item) => item.slug}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.list}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-          />
-        </Animated.View>
-      )}
-    </View>
+          {/* Empty */}
+          {!state.loading && !state.error && state.searched && state.movies.length === 0 && (
+            <View style={styles.center}>
+              <Text style={styles.emptyText}>Không tìm thấy phim phù hợp 😢</Text>
+              <Text style={styles.emptyHint}>Thử mô tả cụ thể hơn.</Text>
+            </View>
+          )}
+
+          {/* Results list */}
+          {!state.loading && state.movies.length > 0 && (
+            <Animated.View style={[styles.resultsContainer, { opacity: fadeAnim }]}>
+              <Text style={styles.resultCount}>
+                Tìm thấy {state.movies.length} kết quả cho "{query}"
+              </Text>
+              <FlatList
+                data={state.movies}
+                keyExtractor={(item) => item.slug}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.list}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+              />
+            </Animated.View>
+          )}
+        </SafeAreaView>
+      </Modal>
+    </>
   );
 }
+
 
 // =========================================================================
 // Styles
 // =========================================================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#141414',
-    paddingHorizontal: 16,
-    paddingTop: 20,
-  },
-  header: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  // ── Compact strip (inline on home screen) ──
+  strip: {
+    marginHorizontal: 16,
+    marginTop: 12,
     marginBottom: 4,
   },
-  subHeader: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 16,
-  },
-  searchRow: {
+  stripInner: {
     flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1C1C',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     gap: 8,
-    marginBottom: 20,
   },
-  input: {
+  aiBadge: {
+    backgroundColor: '#E50914',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  aiBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  stripInput: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
     color: '#FFF',
     fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#333',
+    paddingVertical: 10,
   },
-  searchBtn: {
+  stripBtn: {
+    width: 38,
+    height: 38,
     backgroundColor: '#E50914',
     borderRadius: 10,
-    paddingHorizontal: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchBtnDisabled: {
+  stripBtnDisabled: {
     backgroundColor: '#5a0000',
   },
-  searchBtnText: {
+  stripBtnText: {
+    fontSize: 16,
+  },
+  stripHint: {
+    color: '#444',
+    fontSize: 11,
+    marginTop: 6,
+    marginLeft: 2,
+  },
+
+  // ── Modal results sheet ──
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#141414',
+  },
+  modalHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+    gap: 10,
+  },
+  modalSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1C1C',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#333',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    gap: 8,
+  },
+  modalInput: {
+    flex: 1,
     color: '#FFF',
-    fontWeight: '700',
+    fontSize: 15,
+    paddingVertical: 10,
+  },
+  closeBtn: {
+    alignSelf: 'flex-end',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  closeBtnText: {
+    color: '#888',
     fontSize: 14,
   },
+
+  // ── Shared ──
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -302,7 +409,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errorHint: {
-    color: '#666',
+    color: '#555',
     fontSize: 12,
     marginTop: 8,
     textAlign: 'center',
@@ -320,20 +427,24 @@ const styles = StyleSheet.create({
   },
   resultsContainer: {
     flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   resultCount: {
-    color: '#888',
+    color: '#666',
     fontSize: 12,
     marginBottom: 10,
   },
   list: {
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
   separator: {
     height: 1,
     backgroundColor: '#222',
     marginVertical: 8,
   },
+
+  // ── Movie card ──
   card: {
     flexDirection: 'row',
     backgroundColor: '#1C1C1C',

@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.movies_cache (
   year         INT,                                -- Năm sản xuất
   category     JSONB,                              -- Thể loại (JSON array)
   country      JSONB,                              -- Quốc gia (JSON array)
-  embedding    vector(768),                        -- Gemini text-embedding-004 (768 dims)
+  embedding    vector(3072),                       -- Gemini gemini-embedding-001 (3072 dims)
   created_at   TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()) NOT NULL,
   updated_at   TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()) NOT NULL
 );
@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS public.movies_cache (
 -- =========================================================================
 CREATE INDEX IF NOT EXISTS movies_cache_embedding_idx
   ON public.movies_cache
-  USING hnsw (embedding vector_cosine_ops);
+  USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
 
 -- =========================================================================
 -- BƯỚC 4: Tạo hàm match_movies dùng Cosine Similarity (<=>)
@@ -39,7 +40,7 @@ CREATE INDEX IF NOT EXISTS movies_cache_embedding_idx
 -- match_count     : số kết quả trả về tối đa
 -- =========================================================================
 CREATE OR REPLACE FUNCTION public.match_movies(
-  query_embedding vector(768),
+  query_embedding vector(3072),
   match_threshold float,
   match_count     int
 )

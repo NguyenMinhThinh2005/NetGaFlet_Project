@@ -13,7 +13,7 @@ interface Message {
   type?: 'typing';
   time?: string;
   streaming?: boolean;
-  movieCard?: Movie | null;
+  movieCard?: any | null;
 }
 
 interface ChatBubbleProps {
@@ -112,9 +112,14 @@ function TypingIndicator() {
   );
 }
 
-function MovieCardEmbed({ movie }: { movie: Movie }) {
+function MovieCardEmbed({ movie }: { movie: any }) {
   const router = useRouter();
-  const gradient = parseGradient(movie.posterGradient);
+  const gradient = movie.posterGradient ? parseGradient(movie.posterGradient) : { colors: ['#1a1a2e', '#16213e'], locations: [0, 1] };
+  const title = movie.title || movie.name || '';
+  const genres = movie.genres || (movie.category ? movie.category.map((c: any) => c.name) : []);
+  const rating = movie.rating || 8.0;
+  const year = movie.year || '';
+  const duration = movie.duration || '';
 
   return (
     <View style={styles.embedContainer}>
@@ -128,27 +133,27 @@ function MovieCardEmbed({ movie }: { movie: Movie }) {
           style={StyleSheet.absoluteFill}
         />
         <Text style={styles.embedPosterText} numberOfLines={2}>
-          {movie.title}
+          {title}
         </Text>
       </View>
 
       {/* Info */}
       <View style={styles.embedInfo}>
-        <Text style={styles.embedTitle}>{movie.title}</Text>
+        <Text style={styles.embedTitle}>{title}</Text>
         <View style={styles.embedBadgeRow}>
-          {movie.genres.slice(0, 2).map(g => (
+          {(genres || []).slice(0, 2).map((g: string) => (
             <View key={g} style={styles.embedPill}>
               <Text style={styles.embedPillText}>{g}</Text>
             </View>
           ))}
         </View>
         <Text style={styles.embedMeta}>
-          ⭐ {movie.rating} · {movie.year} · {movie.duration}
+          ⭐ {rating} · {year} · {duration}
         </Text>
 
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => router.push(`/movie/${movie.id}/play`)}
+          onPress={() => router.push(`/movie/${movie.id || movie.slug}/play`)}
           style={styles.embedPlayBtn}
         >
           <Text style={styles.embedPlayBtnText}>▶ Play Now</Text>

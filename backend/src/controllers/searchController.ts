@@ -18,7 +18,7 @@ const supabase = createClient(
 // Model này xuất ra vector 768 chiều, khớp với cột embedding vector(768)
 // =========================================================================
 async function generateEmbedding(text: string): Promise<number[]> {
-  const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
   const result = await model.embedContent(text);
   return result.embedding.values;
 }

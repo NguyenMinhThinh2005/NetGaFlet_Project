@@ -1,27 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 import Theme from '../constants/Theme';
 import ChatBubble from '../components/features/ChatBubble';
-import { mockMovies } from '../data/mockMovies';
 
-const tenetMovie = mockMovies.find(m => m.id === 'tenet');
-
-const FULL_AI_TEXT = "Great taste! Here's one I think you'll obsess over — it's got the mind-bending complexity of Inception but it's much more recent. ";
+// ── Resolve backend LAN IP the same way SemanticSearch.tsx does ──
+function getBackendUrl(): string {
+  const debuggerHost =
+    Constants.expoConfig?.hostUri ??
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost ??
+    (Constants as any).manifest?.debuggerHost;
+  if (debuggerHost) return `http://${debuggerHost.split(':')[0]}:3000`;
+  if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
+  return 'http://localhost:3000';
+}
+const BACKEND_URL = getBackendUrl();
 
 const INITIAL_MESSAGES = [
   {
     id: 1,
     sender: 'ai' as const,
-    text: "Hey Alex! 👋 What kind of film are you in the mood for tonight?",
-    time: '9:41 PM',
-  },
-  {
-    id: 2,
-    sender: 'user' as const,
-    text: 'Something mind-bending, like Inception but newer.',
-    time: '9:42 PM',
+    text: "Xin chào! Bạn muốn xem phim thể loại gì hôm nay?",
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   },
 ];
 
@@ -29,75 +31,83 @@ export default function ChatbotScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
-  const [streamText, setStreamText] = useState('');
-  const [streamIdx, setStreamIdx] = useState(0);
-  const [showCard, setShowCard] = useState(false);
   const [showTyping, setShowTyping] = useState(false);
   const [input, setInput] = useState('');
 
   const scrollRef = useRef<ScrollView>(null);
-  const intervalRef = useRef<any>(null);
-  const typingTimeoutRef = useRef<any>(null);
-  const startTimeoutRef = useRef<any>(null);
-
-  // Streaming effect
-  useEffect(() => {
-    startTimeoutRef.current = setTimeout(() => {
-      setShowTyping(true);
-      typingTimeoutRef.current = setTimeout(() => {
-        setShowTyping(false);
-        intervalRef.current = setInterval(() => {
-          setStreamIdx(i => {
-            if (i >= FULL_AI_TEXT.length) {
-              clearInterval(intervalRef.current);
-              setShowCard(true);
-              return i;
-            }
-            setStreamText(FULL_AI_TEXT.slice(0, i + 1));
-            return i + 1;
-          });
-        }, 28);
-      }, 1500);
-    }, 600);
-
-    return () => {
-      clearTimeout(startTimeoutRef.current);
-      clearTimeout(typingTimeoutRef.current);
-      clearInterval(intervalRef.current);
-    };
-  }, []);
 
   // Scroll to bottom when messages change
   useEffect(() => {
     setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 100);
-  }, [messages, streamText, showTyping, showCard]);
+  }, [messages, showTyping]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
-    
+
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userQuery = input.trim();
+
     const userMsg = {
       id: Date.now(),
       sender: 'user' as const,
-      text: input,
+      text: userQuery,
       time: timeStr,
     };
-
     setMessages(prev => [...prev, userMsg]);
     setInput('');
 
-    // Simulated reply after 1s
-    setTimeout(() => {
+    // Show typing indicator while fetching real results
+    setShowTyping(true);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/search/semantic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: userQuery, threshold: 0.4, limit: 5 }),
+      });
+
+      if (!response.ok) throw new Error(`Server lỗi: ${response.status}`);
+
+      const json = await response.json();
+      const movies: any[] = json.movies ?? [];
+
+      setShowTyping(false);
+
+      // Format AI reply from real movie results
+      let aiText: string;
+      if (movies.length === 0) {
+        aiText = 'Hmm, I couldn\'t find a match for that. Try describing the mood, genre, or storyline differently! 🎬';
+      } else {
+        const list = movies
+          .slice(0, 5)
+          .map((m, i) => `${i + 1}. **${m.name}**${m.origin_name ? ` (${m.origin_name})` : ''}${m.year ? ` • ${m.year}` : ''} — ${Math.round(m.similarity * 100)}% match`)
+          .join('\n');
+        aiText = `Here are the top picks I found for you! 🌟\n\n${list}`;
+      }
+
       const aiMsg = {
         id: Date.now() + 1,
         sender: 'ai' as const,
-        text: "I'll find something perfect for that mood! Give me a moment... 🎬",
+        text: aiText,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        movieCard: movies.length > 0 ? movies[0] : null,
       };
       setMessages(prev => [...prev, aiMsg]);
-    }, 1000);
+
+    } catch (err: any) {
+      setShowTyping(false);
+      console.error('[Chatbot] Fetch error:', err);
+      Alert.alert('Lỗi API', err.message ?? 'Không thể kết nối đến server.');
+      const errMsg = {
+        id: Date.now() + 1,
+        sender: 'ai' as const,
+        text: '⚠️ Could not reach the search server. Make sure the backend is running and try again.',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages(prev => [...prev, errMsg]);
+    }
   };
 
   return (
@@ -134,20 +144,6 @@ export default function ChatbotScreen() {
         {messages.map(msg => (
           <ChatBubble key={msg.id} message={msg} />
         ))}
-
-        {/* Streaming message */}
-        {(streamText.length > 0 || showCard) && (
-          <ChatBubble
-            message={{
-              id: 'stream',
-              sender: 'ai',
-              text: streamText,
-              streaming: streamIdx < FULL_AI_TEXT.length,
-              time: '9:43 PM',
-              movieCard: showCard ? tenetMovie : null,
-            }}
-          />
-        )}
 
         {/* Typing dots */}
         {showTyping && (
