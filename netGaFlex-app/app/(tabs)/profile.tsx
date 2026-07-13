@@ -75,7 +75,6 @@ export default function ProfileScreen() {
         {/* Library Section */}
         <ProfileSection label="Library">
           <ListRow icon="🎬" label="Viewing History" onClick={() => router.push('/watch-history')} showChevron />
-          <ListRow icon="📥" label="Downloads" onClick={() => router.push('/downloads' as any)} showChevron />
           <ListRow icon="🔖" label="My List" onClick={() => router.push('/watchlist')} showChevron />
         </ProfileSection>
 

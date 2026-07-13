@@ -2,6 +2,9 @@
 // OPHIM API SERVICE WRAPPER (BỘ BỌC DỊCH VỤ API OPHIM)
 // Chứa toàn bộ các hàm gọi API lấy danh sách, thông tin và link stream phim từ OPhim
 // Tích hợp bộ lọc phim người lớn/18+ để làm sạch nội dung hiển thị trong app
+// TODO(Architecture): Đảm bảo toàn bộ dữ liệu phim (danh sách, chi tiết, stream) 
+// BẮT BUỘC phải được gọi trực tiếp thông qua Movie API (REST API). 
+// TUYỆT ĐỐI KHÔNG sử dụng Local Storage để cache file media hay thực hiện chức năng Download.
 // =========================================================================
 
 // Cấu hình URL cơ sở cho các tài nguyên chung (như trang chi tiết phim, danh sách phim mới)

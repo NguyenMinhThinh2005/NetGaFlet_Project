@@ -43,18 +43,23 @@ export default function SignUpScreen() {
     // Bật cờ loading và xóa sạch thông báo lỗi cũ
     setLoading(true);
     setError('');
+    try {
+      // 2. Gọi hàm signUp từ AuthContext, truyền vào các giá trị: email, mật khẩu, và tên hiển thị
+      const res = await signUp(email, password, name);
 
-    // 2. Gọi hàm signUp từ AuthContext, truyền vào các giá trị: email, mật khẩu, và tên hiển thị
-    const res = await signUp(email, password, name);
-
-    // 3. Xử lý kết quả đăng ký trả về
-    if (res.success) {
-      // Đăng ký thành công, tự động chuyển người dùng tới trang chọn thể loại phim yêu thích (genre-setup)
-      router.replace('/genre-setup');
-    } else {
-      // Đăng ký thất bại, hiển thị thông báo lỗi từ Supabase hoặc dùng lỗi mặc định
-      setError(res.error || 'Failed to create account.');
-      // Tắt trạng thái loading để cho phép người dùng sửa lại thông tin và thử lại
+      // 3. Xử lý kết quả đăng ký trả về
+      if (res.success) {
+        // Đăng ký thành công, tự động chuyển người dùng tới trang chọn thể loại phim yêu thích (genre-setup)
+        router.replace('/genre-setup');
+      } else {
+        // Đăng ký thất bại, hiển thị thông báo lỗi từ Supabase hoặc dùng lỗi mặc định
+        setError(res.error || 'Failed to create account.');
+      }
+    } catch (err: any) {
+      // Bắt lỗi hệ thống hoặc kết nối mạng đột ngột
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      // Tắt trạng thái loading trong khối finally để luôn đảm bảo nút bấm được mở khóa
       setLoading(false);
     }
   };

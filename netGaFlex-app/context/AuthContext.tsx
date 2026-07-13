@@ -75,6 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // State lưu trạng thái đã trải qua Onboarding chưa (có thể lưu cục bộ trên thiết bị)
   const [hasOnboarded, setHasOnboarded] = useState(false);
 
+  // Helper: wait for a given number of milliseconds
+  const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
   /**
    * Hàm đồng bộ phiên làm việc (session) và truy vấn dữ liệu hồ sơ (profile) tương ứng từ database
    */
@@ -86,12 +89,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentSession?.user) {
       try {
         // Thực hiện truy vấn danh sách các profile liên kết với user_id này từ bảng profiles của Supabase
-        const { data: profiles, error } = await getUserProfiles(currentSession.user.id);
+        const { data: profiles } = await getUserProfiles(currentSession.user.id);
         
+        let resolvedProfiles = profiles;
+
+        // Nếu không tìm thấy profile, có thể do hàm trigger SQL `handle_new_user` đang chạy ngầm chưa chèn kịp
+        // Tiến hành chờ 1.5 giây để thử lấy lại dữ liệu
+        if (!resolvedProfiles || resolvedProfiles.length === 0) {
+          await wait(1500);
+          const { data: retryProfiles } = await getUserProfiles(currentSession.user.id);
+          resolvedProfiles = retryProfiles;
+        }
+
         // Nếu tìm thấy danh sách hồ sơ và danh sách này không rỗng
-        if (profiles && profiles.length > 0) {
+        if (resolvedProfiles && resolvedProfiles.length > 0) {
           // Lấy hồ sơ đầu tiên làm hồ sơ hoạt động mặc định
-          const profile = profiles[0];
+          const profile = resolvedProfiles[0];
           setActiveProfile(profile);
 
           // Truy vấn tổng số lượng phim yêu thích từ bảng favorites thuộc về profile này
@@ -128,15 +141,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             subtitleLanguage: 'English', // Ngôn ngữ phụ đề
             notificationsEnabled: true, // Bật thông báo
           });
-        } else {
-          // Nếu không tìm thấy profile, có thể do hàm trigger SQL `handle_new_user` đang chạy ngầm chưa chèn kịp
-          // Tiến hành hẹn giờ chạy lại hàm syncSession sau 1.5 giây để thử lấy lại dữ liệu
-          setTimeout(async () => {
-            const { data: retryProfiles } = await getUserProfiles(currentSession.user.id);
-            if (retryProfiles && retryProfiles.length > 0) {
-              syncSession(currentSession);
-            }
-          }, 1500);
         }
       } catch (err) {
         // Ghi lại lỗi ra log nếu có sự cố khi truy vấn hoặc đồng bộ
@@ -160,8 +164,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 2. Đăng ký lắng nghe sự thay đổi trạng thái Auth của Supabase (ví dụ: đăng nhập, đăng xuất, gia hạn token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       setLoading(true); // Bật trạng thái loading khi đang đồng bộ phiên mới
-      await syncSession(newSession); // Đồng bộ lại dữ liệu phiên làm việc mới
-      setLoading(false); // Hoàn thành đồng bộ, tắt loading
+      try {
+        await syncSession(newSession); // Đồng bộ lại dữ liệu phiên làm việc mới
+      } catch (err) {
+        console.error('onAuthStateChange syncSession error:', err);
+      } finally {
+        setLoading(false); // Hoàn thành đồng bộ, tắt loading
+      }
     });
 
     // Hủy đăng ký lắng nghe sự kiện Auth khi AuthProvider bị unmount để tránh rò rỉ bộ nhớ

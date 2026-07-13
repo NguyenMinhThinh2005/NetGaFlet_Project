@@ -7,7 +7,7 @@ import Theme from '../../constants/Theme';
 import Header from '../../components/ui/Header';
 import HeroBanner from '../../components/features/HeroBanner';
 import MovieCard from '../../components/ui/MovieCard';
-import FAB from '../../components/features/FAB';
+import SemanticSearch from '../../components/SemanticSearch';
 import { getNewUpdatedMovies, getMoviesByType } from '../../lib/movieApi';
 import { useApp } from '../../context/AppContext';
 import { useShake } from '../../hooks/useShake';
@@ -158,6 +158,10 @@ export default function HomeScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
       <Header />
+
+      {/* AI Semantic Search — search bar mounts here, results open as Modal overlay */}
+      <SemanticSearch />
+
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Hero Banner */}
         {heroMovie && <HeroBanner movie={heroMovie} />}
@@ -216,17 +220,7 @@ export default function HomeScreen() {
             </ScrollView>
           </Section>
         )}
-
-        {/* Spacer for FAB */}
-        <View style={{ height: 100 }} />
       </ScrollView>
-
-      {/* Floating Action Button */}
-      <FAB
-        onClick={() => router.push('/chatbot')}
-        icon="✨"
-        tooltip="📳 Shake for a surprise"
-      />
     </View>
   );
 }

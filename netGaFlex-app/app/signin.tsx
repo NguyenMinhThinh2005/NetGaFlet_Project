@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import Theme from '../constants/Theme';
 import FloatingInput from '../components/ui/FloatingInput';
@@ -20,11 +20,23 @@ export default function SignInScreen() {
     }
     setLoading(true);
     setError('');
-    const res = await login(email, password);
-    if (res.success) {
-      router.replace('/(tabs)');
-    } else {
-      setError(res.error || 'Invalid credentials.');
+    try {
+      const res = await login(email, password);
+      if (res.success) {
+        // Explicit navigation — guarantees redirect even if onAuthStateChange
+        // fires late on physical devices with slow network.
+        router.replace('/(tabs)');
+      } else {
+        const msg = res.error || 'Invalid credentials.';
+        setError(msg);
+        Alert.alert('Đăng nhập thất bại', msg);
+      }
+    } catch (err: any) {
+      const msg = err.message || 'An unexpected error occurred.';
+      setError(msg);
+      Alert.alert('Lỗi Đăng Nhập', msg);
+    } finally {
+      // Always reset local loading so the button is never stuck.
       setLoading(false);
     }
   };
@@ -32,12 +44,20 @@ export default function SignInScreen() {
   const handleSocial = async () => {
     setLoading(true);
     setError('');
-    // For demo/testing, try to sign in with a default credential or show error
-    const res = await login('alex@email.com', 'password123');
-    if (res.success) {
-      router.replace('/(tabs)');
-    } else {
-      setError('Demo login failed. Please sign up or sign in with your email.');
+    try {
+      const res = await login('alex@email.com', 'password123');
+      if (res.success) {
+        router.replace('/(tabs)');
+      } else {
+        const msg = 'Demo login failed. Please sign up or sign in with your email.';
+        setError(msg);
+        Alert.alert('Demo Login', msg);
+      }
+    } catch (err: any) {
+      const msg = err.message || 'An unexpected error occurred.';
+      setError(msg);
+      Alert.alert('Lỗi Đăng Nhập', msg);
+    } finally {
       setLoading(false);
     }
   };
