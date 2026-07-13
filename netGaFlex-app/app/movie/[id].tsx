@@ -156,6 +156,7 @@ export default function MovieDetailScreen() {
   const imageUrl = movie?.posterUrl || (movie?.thumbUrl ? (movie.thumbUrl.startsWith('http') ? movie.thumbUrl : `https://img.ophim.live/uploads/movies/${movie.thumbUrl}`) : null);
 
   const handlePlayFirst = () => {
+    if (!movie) return;
     if (episodes && episodes.length > 0) {
       const firstEp = episodes[0];
       const playLink = firstEp.link_embed || firstEp.link_m3u8;
@@ -286,11 +287,11 @@ export default function MovieDetailScreen() {
                       return;
                     }
                     router.push({
-                      pathname: `/movie/${movie.id}/play` as any,
+                      pathname: `/movie/${movie!.id}/play` as any,
                       params: {
                         link: playLink,
                         episodeName: ep.name,
-                        movieName: movie.title,
+                        movieName: movie!.title,
                       }
                     });
                   }}

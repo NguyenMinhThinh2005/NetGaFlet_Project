@@ -21,9 +21,8 @@ export function useShake(onShake: () => void, threshold = 1.8) {
 
   useFocusEffect(
     useCallback(() => {
-      // Biến lưu trữ đối tượng đăng ký lắng nghe cảm biến
       let subscription: { remove: () => void } | null = null;
-      let timeoutId: NodeJS.Timeout;
+      let timeoutId: any;
 
       // Hàm bất đồng bộ thiết lập và đăng ký lắng nghe cảm biến gia tốc
       const subscribe = async () => {
@@ -92,5 +91,4 @@ export function useShake(onShake: () => void, threshold = 1.8) {
       };
     }, [onShake, threshold])
   );
->>>>>>> origin/feature/update-logic
 }
