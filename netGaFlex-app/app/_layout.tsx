@@ -1,5 +1,5 @@
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -20,8 +20,32 @@ export const unstable_settings = {
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-import { AuthProvider } from '../context/AuthContext';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { AppProvider } from '../context/AppContext';
+
+function AuthListener() {
+  const { isLoggedIn, hasOnboarded, loading } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (loading) return;
+
+    const inAuthGroup = segments[0] === 'signin' || segments[0] === 'signup' || segments[0] === 'onboarding' || segments[0] === 'forgot-password' || !segments[0];
+
+    if (!isLoggedIn && !inAuthGroup) {
+      if (hasOnboarded) {
+        router.replace('/signin');
+      } else {
+        router.replace('/onboarding');
+      }
+    } else if (isLoggedIn && inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [isLoggedIn, hasOnboarded, loading, segments]);
+
+  return null;
+}
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -53,6 +77,7 @@ function RootLayoutNav() {
     <AuthProvider>
       <AppProvider>
         <ThemeProvider value={DarkTheme}>
+          <AuthListener />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="onboarding" />
@@ -61,7 +86,6 @@ function RootLayoutNav() {
             <Stack.Screen name="signup" />
             <Stack.Screen name="forgot-password" />
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="chatbot" />
             <Stack.Screen name="watchlist" />
             <Stack.Screen name="watch-history" />
             <Stack.Screen name="mood-picker" />
