@@ -11,6 +11,7 @@ import FAB from '../../components/features/FAB';
 import { getNewUpdatedMovies, getMoviesByType } from '../../lib/movieApi';
 import { useApp } from '../../context/AppContext';
 import { useShake } from '../../hooks/useShake';
+import SkeletonBlock from '../../components/ui/SkeletonBlock';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -114,10 +115,41 @@ export default function HomeScreen() {
 
   if (loading && !heroMovie) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color={Theme.colors.primary} />
-        <Text style={{ color: '#fff', marginTop: 12, fontFamily: Theme.typography.fontFamily }}>Loading Cinema...</Text>
+        <Header />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Hero Banner Skeleton */}
+          <View style={{ height: 350, width: '100%', marginBottom: 20 }}>
+            <SkeletonBlock width="100%" height="100%" borderRadius={0} />
+          </View>
+
+          {/* Section 1 Skeleton */}
+          <View style={{ marginTop: 20 }}>
+            <SkeletonBlock width={130} height={20} borderRadius={4} style={{ marginLeft: 20, marginBottom: 14 }} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <SkeletonBlock width={120} height={180} borderRadius={12} />
+                <SkeletonBlock width={120} height={180} borderRadius={12} />
+                <SkeletonBlock width={120} height={180} borderRadius={12} />
+                <SkeletonBlock width={120} height={180} borderRadius={12} />
+              </View>
+            </ScrollView>
+          </View>
+
+          {/* Section 2 Skeleton */}
+          <View style={{ marginTop: 28 }}>
+            <SkeletonBlock width={150} height={20} borderRadius={4} style={{ marginLeft: 20, marginBottom: 14 }} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <SkeletonBlock width={120} height={180} borderRadius={12} />
+                <SkeletonBlock width={120} height={180} borderRadius={12} />
+                <SkeletonBlock width={120} height={180} borderRadius={12} />
+                <SkeletonBlock width={120} height={180} borderRadius={12} />
+              </View>
+            </ScrollView>
+          </View>
+        </ScrollView>
       </View>
     );
   }

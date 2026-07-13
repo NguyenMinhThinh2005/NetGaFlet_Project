@@ -12,6 +12,8 @@ import { getMovieDetails } from '../../lib/movieApi';
 import { getReviewsForMovie, getRatingDistribution } from '../../data/mockReviews';
 import { useBottomSheet } from '../../hooks/useBottomSheet';
 import { parseGradient } from '../../utils/helpers';
+import SkeletonBlock from '../../components/ui/SkeletonBlock';
+import { MovieDetail, Episode, CastMember } from '../../types/movie';
 
 export default function MovieDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,8 +22,8 @@ export default function MovieDetailScreen() {
   const { isInWatchlist, toggleWatchlist } = useApp();
   const { isOpen, open, close } = useBottomSheet();
 
-  const [movie, setMovie] = useState<any>(null);
-  const [episodes, setEpisodes] = useState<any[]>([]);
+  const [movie, setMovie] = useState<MovieDetail | null>(null);
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
 
   const inList = movie ? isInWatchlist(movie.id) : false;
@@ -37,7 +39,7 @@ export default function MovieDetailScreen() {
         if (data && data.movie) {
           // Map actors
           const apiActors = data.movie.actor;
-          let mappedCast: any[] = [];
+          let mappedCast: CastMember[] = [];
           if (apiActors) {
             const actorList = Array.isArray(apiActors) ? apiActors : apiActors.split(',');
             mappedCast = actorList.slice(0, 10).map((actorName: string) => {
@@ -52,7 +54,7 @@ export default function MovieDetailScreen() {
           }
 
           // Map episodes
-          let apiEpisodes: any[] = [];
+          let apiEpisodes: Episode[] = [];
           if (data.episodes && data.episodes.length > 0) {
             // Take the first server's data
             apiEpisodes = data.episodes[0].server_data || [];
@@ -87,9 +89,65 @@ export default function MovieDetailScreen() {
 
   if (loading && !movie) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Theme.colors.primary} />
-        <Text style={{ color: '#fff', marginTop: 12, fontFamily: Theme.typography.fontFamily }}>Loading Details...</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Back button */}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[styles.backBtn, { top: 16 }]}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.backBtnText}>←</Text>
+        </TouchableOpacity>
+
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Skeleton Hero Background */}
+          <View style={styles.heroBackground}>
+            <SkeletonBlock width="100%" height="100%" borderRadius={0} />
+          </View>
+
+          {/* Skeleton Meta / Title */}
+          <View style={{ paddingHorizontal: 20, marginTop: 20, gap: 12 }}>
+            <SkeletonBlock width="70%" height={28} borderRadius={6} />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <SkeletonBlock width={70} height={20} borderRadius={10} />
+              <SkeletonBlock width={75} height={20} borderRadius={10} />
+              <SkeletonBlock width={60} height={20} borderRadius={10} />
+            </View>
+            <SkeletonBlock width="45%" height={16} borderRadius={4} />
+          </View>
+
+          {/* Skeleton AI Summary Card */}
+          <View style={styles.aiSummaryCard}>
+            <SkeletonBlock width="35%" height={14} borderRadius={4} style={{ marginBottom: 12 }} />
+            <SkeletonBlock width="100%" height={14} borderRadius={4} style={{ marginBottom: 8 }} />
+            <SkeletonBlock width="95%" height={14} borderRadius={4} style={{ marginBottom: 8 }} />
+            <SkeletonBlock width="60%" height={14} borderRadius={4} />
+          </View>
+
+          {/* Skeleton Episodes Section */}
+          <View style={styles.episodesSection}>
+            <SkeletonBlock width="25%" height={18} borderRadius={4} style={{ marginLeft: 20, marginBottom: 14 }} />
+            <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20 }}>
+              <SkeletonBlock width={80} height={40} borderRadius={8} />
+              <SkeletonBlock width={80} height={40} borderRadius={8} />
+              <SkeletonBlock width={80} height={40} borderRadius={8} />
+            </View>
+          </View>
+
+          {/* Skeleton Cast Section */}
+          <View style={styles.castSection}>
+            <SkeletonBlock width="20%" height={18} borderRadius={4} style={{ marginLeft: 20, marginBottom: 14 }} />
+            <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 20 }}>
+              {[1, 2, 3, 4].map((i) => (
+                <View key={i} style={{ alignItems: 'center', gap: 6 }}>
+                  <SkeletonBlock width={56} height={56} borderRadius={28} />
+                  <SkeletonBlock width={50} height={10} borderRadius={4} />
+                  <SkeletonBlock width={40} height={8} borderRadius={3} />
+                </View>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -161,7 +219,7 @@ export default function MovieDetailScreen() {
 
               {/* Badges */}
               <View style={styles.badgeRow}>
-                {movie?.genres?.map((g: any) => (
+                {movie?.genres?.map((g: string) => (
                   <View key={g} style={styles.genrePill}>
                     <Text style={styles.genrePillText}>{g}</Text>
                   </View>
@@ -218,7 +276,7 @@ export default function MovieDetailScreen() {
           <View style={styles.episodesSection}>
             <Text style={styles.sectionTitle}>Episodes</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.episodesScroll}>
-              {episodes.map((ep: any) => (
+              {episodes.map((ep: Episode) => (
                 <TouchableOpacity
                   key={ep.slug}
                   onPress={() => {
@@ -253,7 +311,7 @@ export default function MovieDetailScreen() {
           <View style={styles.castSection}>
             <Text style={styles.sectionTitle}>Cast</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.castScroll}>
-              {movie.cast.map((person: any) => (
+              {movie.cast.map((person: CastMember) => (
                 <View key={person.name} style={styles.castItem}>
                   <View style={[styles.castAvatar, { backgroundColor: person.color || Theme.colors.surfaceElevated }]}>
                     <Text style={styles.castInitials}>{person.initials}</Text>
@@ -306,7 +364,7 @@ export default function MovieDetailScreen() {
   );
 }
 
-function ReviewsContent({ movie, reviews, dist }: { movie: any; reviews: any[]; dist: number[] }) {
+function ReviewsContent({ movie, reviews, dist }: { movie: MovieDetail | null; reviews: any[]; dist: number[] }) {
   const totalRatings = '2,847';
   const avgRating = movie?.rating || 8.5;
   const stars = Math.round(avgRating / 2);
