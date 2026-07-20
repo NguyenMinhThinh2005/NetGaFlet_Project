@@ -85,7 +85,7 @@ export default function HeroBanner({ movie }: HeroBannerProps) {
         <View style={styles.rightButtons}>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => toggleWatchlist(movie.id)}
+            onPress={() => toggleWatchlist(movie)}
             style={styles.watchlistBtn}
           >
             <Text style={[styles.watchlistBtnText, { color: inList ? Theme.colors.primary : Theme.colors.textPrimary }]}>
