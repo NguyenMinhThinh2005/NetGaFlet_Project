@@ -32,7 +32,7 @@ export default function VideoPlayerScreen() {
   const savedItem = watchHistory.find((h: any) => h.movieId === (id || movie.id));
   const savedSeconds = savedItem ? Math.floor(savedItem.progress * totalSeconds) : 0;
 
-  const [currentTime, setCurrentTime] = useState(savedSeconds || Math.floor(totalSeconds * 0.05));
+  const [currentTime, setCurrentTime] = useState(savedItem ? savedSeconds : Math.floor(totalSeconds * 0.05));
   const isPlaying = true; // Timer always runs in background while watching
 
   // Auto-play time progression (keeps running in background to update watch history)
