@@ -14,8 +14,8 @@ const supabase = createClient(
 );
 
 // =========================================================================
-// Helper: Tạo embedding vector từ text query dùng Gemini text-embedding-004
-// Model này xuất ra vector 768 chiều, khớp với cột embedding vector(768)
+// Helper: Tạo embedding vector từ text query dùng Gemini gemini-embedding-001
+// Model này xuất ra vector 3072 chiều, khớp với cột embedding vector(3072)
 // =========================================================================
 async function generateEmbedding(text: string): Promise<number[]> {
   const model = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
