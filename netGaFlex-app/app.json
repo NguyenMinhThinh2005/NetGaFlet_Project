@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "NetGaFlex-app",
-    "slug": "NetGaFlex-app",
+    "name": "NetGaFlet",
+    "slug": "NetGaFlet",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "netgaflexapp",
+    "scheme": "netgaflet",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -40,3 +40,4 @@
     }
   }
 }
+
