@@ -17,11 +17,11 @@ const mockNotifications = [
   },
   {
     id: '2',
-    title: 'Download Complete',
-    message: 'Inception has finished downloading. You can watch it offline now.',
+    title: 'New Recommendation',
+    message: 'Based on your watch history, we found new titles you might enjoy.',
     time: '5 hours ago',
     read: true,
-    icon: 'download-cloud',
+    icon: 'star',
   },
   {
     id: '3',
