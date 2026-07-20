@@ -44,6 +44,14 @@ export async function semanticSearch(req: Request, res: Response): Promise<void>
     return;
   }
 
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    res.status(500).json({
+      success: false,
+      message: 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY chưa được cấu hình.',
+    });
+    return;
+  }
+
   try {
     // BƯỚC 1: Sinh embedding vector từ câu truy vấn tự nhiên
     console.log(`[SemanticSearch] Generating embedding for: "${query}"`);
